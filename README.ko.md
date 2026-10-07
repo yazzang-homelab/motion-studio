@@ -1,6 +1,8 @@
 # motion-studio
 
-[![ci](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml)
+<p align="center"><img src="https://raw.githubusercontent.com/yazzang-homelab/motion-studio/assets/social-preview.png" alt="motion-studio: 모션 디자인용 Claude Code 플러그인" width="100%"></p>
+
+[![ci](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml) [![license: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-D97757)](LICENSE)
 
 [English](README.md) | 한국어
 
@@ -13,6 +15,9 @@ Claude는 영상을 프로그램으로 쓴다. 어떤 시점의 프레임이든 
 제공한다.
 
 버전 0.1.0. 독립적인 비공식 구현이며 Anthropic 및 [CREDITS.md](CREDITS.md)에 밝힌 출처들과 무관하다.
+
+<p align="center"><img src="https://raw.githubusercontent.com/yazzang-homelab/motion-studio/assets/demo.webp" alt="motion-studio로 렌더링한 12초 데모 필름" width="100%"></p>
+<p align="center"><sub><code>studio-init</code>이 만들어 주는 12초 데모 필름을 플러그인으로 렌더링한 것(여기는 16:9, 같은 타임라인으로 9:16·1:1·4:5도 뽑는다).</sub></p>
 
 ## 목차
 

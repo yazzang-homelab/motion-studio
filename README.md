@@ -1,6 +1,8 @@
 # motion-studio
 
-[![ci](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml)
+<p align="center"><img src="https://raw.githubusercontent.com/yazzang-homelab/motion-studio/assets/social-preview.png" alt="motion-studio: a Claude Code plugin for motion design" width="100%"></p>
+
+[![ci](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/yazzang-homelab/motion-studio/actions/workflows/ci.yml) [![license: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-D97757)](LICENSE)
 
 English | [한국어](README.ko.md)
 
@@ -14,6 +16,9 @@ frames, and delivery in 9:16, 1:1 and 16:9 from one timeline. On top of that it 
 
 Version 0.1.0. Independent, unofficial implementation: not affiliated with Anthropic or any source credited in
 [CREDITS.md](CREDITS.md).
+
+<p align="center"><img src="https://raw.githubusercontent.com/yazzang-homelab/motion-studio/assets/demo.webp" alt="The 12-second demo film rendered by motion-studio" width="100%"></p>
+<p align="center"><sub>The 12 s demo film that <code>studio-init</code> scaffolds, rendered by the plugin (16:9 here; the same timeline renders 9:16, 1:1 and 4:5).</sub></p>
 
 ## Contents
 
