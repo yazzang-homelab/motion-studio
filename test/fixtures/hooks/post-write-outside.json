@@ -1,0 +1,9 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "{{OUTSIDE}}",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": { "file_path": "{{OUTSIDE_BS}}\\film\\bad.js", "content": "Math.random();\n" },
+  "tool_response": { "filePath": "{{OUTSIDE_BS}}\\film\\bad.js", "type": "create" },
+  "tool_use_id": "toolu_fixture_4"
+}

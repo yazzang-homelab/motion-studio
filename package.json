@@ -1,0 +1,28 @@
+{
+  "name": "motion-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development scripts for the motion-studio Claude Code plugin (not needed at runtime).",
+  "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "homepage": "https://github.com/yazzang-homelab/motion-studio#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yazzang-homelab/motion-studio.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node -e \"const fs=require('node:fs'),cp=require('node:child_process');const f=fs.readdirSync('test').filter(n=>n.endsWith('.test.mjs')).sort().map(n=>'test/'+n);if(f.length===0){console.error('no test/*.test.mjs files found');process.exit(1)}const r=cp.spawnSync(process.execPath,['--test','--test-concurrency='+Math.max(1,Math.min(4,require('node:os').availableParallelism()-1)),...process.argv.slice(1),...f],{stdio:'inherit'});process.exit(r.status??1)\" --",
+    "test:smoke": "node -e \"const cp=require('node:child_process');const r=cp.spawnSync(process.execPath,['--test',...process.argv.slice(1),'test/smoke.test.mjs'],{stdio:'inherit',env:{...process.env,SMOKE:'1'}});process.exit(r.status??1)\" --",
+    "lint": "node scripts/lint-plugin.mjs",
+    "validate": "claude plugin validate . --strict && claude plugin validate .claude-plugin/plugin.json --strict",
+    "eval:lint": "node scripts/eval-lint.mjs",
+    "eval:selftest": "node evals/_selftest/selftest.mjs --scaffold"
+  },
+  "devDependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "playwright": "^1.63.0"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "title": "Untitled Film",
+  "duration": 12,
+  "fps": 60,
+  "subframes": 4,
+  "shutter": 0.5,
+  "bpm": 120,
+  "beatsPerBar": 4,
+  "loop": false,
+  "formats": ["9x16", "1x1", "16x9"],
+  "primaryFormat": "9x16",
+  "capture": "auto",
+  "browser": "auto",
+  "encode": { "crf": 16, "preset": "slow", "tune": "animation", "previewPreset": "veryfast" },
+  "poster": null,
+  "safe": {
+    "9x16": { "top": 0.10, "bottom": 0.16, "left": 0.06, "right": 0.08 },
+    "1x1": { "top": 0.07, "bottom": 0.07, "left": 0.07, "right": 0.07 },
+    "16x9": { "top": 0.08, "bottom": 0.08, "left": 0.06, "right": 0.06 },
+    "4x5": { "top": 0.07, "bottom": 0.09, "left": 0.07, "right": 0.07 }
+  },
+  "brand": {
+    "name": "",
+    "url": "",
+    "colors": { "bg": "#141413", "fg": "#F0EEE6", "accent": "#D97757", "muted": "#6C6B73" },
+    "fonts": { "display": "Instrument Serif", "ui": "Inter" }
+  },
+  "fonts": [],
+  "audio": {
+    "music": "audio/music.wav",
+    "style": "pulse",
+    "sfx": "audio/sfx.wav",
+    "voice": null,
+    "master": "out/score.wav",
+    "lufs": -14,
+    "lufsTolerance": 0.5,
+    "truePeak": -1,
+    "musicGainDb": -2,
+    "sfxGainDb": 0,
+    "voiceGainDb": 0,
+    "duck": true
+  },
+  "gate": {
+    "enabled": true,
+    "minScore": 8,
+    "minRounds": 3,
+    "axes": ["hook", "readability", "motion", "variety", "composition", "brand", "sound"],
+    "naAllowed": ["brand"],
+    "requireFormats": false
+  },
+  "critique": { "deadSpanSec": 2.0, "staticEps": 0.35, "cornerPct": 0.08, "popRatio": 3.0, "stepped": false, "popIgnore": [] },
+  "deliver": { "maxBytes": { "x": 536870912 } }
+}

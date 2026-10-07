@@ -1,0 +1,24 @@
+{
+  "name": "motion-studio",
+  "displayName": "Motion Studio",
+  "version": "0.1.0",
+  "description": "Code-rendered motion design studio for Claude Code: a deterministic seek(t) canvas renderer, spring physics, beat-synced synthesized sound, a self-critique loop and multi-format delivery.",
+  "author": {
+    "name": "yazzang"
+  },
+  "homepage": "https://github.com/yazzang-homelab/motion-studio",
+  "repository": "https://github.com/yazzang-homelab/motion-studio",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "keywords": [
+    "motion-design",
+    "animation",
+    "video",
+    "render",
+    "canvas",
+    "springs",
+    "sound-design",
+    "playwright",
+    "ffmpeg",
+    "showreel"
+  ]
+}

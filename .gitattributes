@@ -1,0 +1,27 @@
+# LF everywhere: hook and tool scripts run through `node` on every OS, and shebang/bash
+# scripts (eval scaffolds) break on CRLF. Windows checkouts must not convert.
+* text=auto eol=lf
+
+# Binary assets: never normalize, never diff as text
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.wav    binary
+*.mp3    binary
+*.m4a    binary
+*.aac    binary
+*.flac   binary
+*.ogg    binary
+*.mp4    binary
+*.mov    binary
+*.webm   binary
+*.pdf    binary
+*.zip    binary
+*.gz     binary

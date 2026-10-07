@@ -1,0 +1,14 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "{{ROOT}}",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "{{ROOT_BS}}\\film\\overlay.css",
+    "old_string": "opacity: 1;",
+    "new_string": "transition: opacity 0.2s;",
+    "replace_all": false
+  },
+  "tool_response": { "filePath": "{{ROOT_BS}}\\film\\overlay.css" },
+  "tool_use_id": "toolu_fixture_2"
+}

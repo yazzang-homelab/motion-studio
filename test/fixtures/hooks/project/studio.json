@@ -1,0 +1,8 @@
+{
+  "title": "Hook Fixture Film",
+  "duration": 4,
+  "fps": 30,
+  "bpm": 120,
+  "formats": ["9x16", "1x1"],
+  "primaryFormat": "9x16"
+}

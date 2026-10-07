@@ -1,0 +1,15 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "{{OUTSIDE}}/transcript.jsonl",
+  "cwd": "{{ROOT}}",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "{{ROOT_BS}}\\film\\scenes\\ch01_bad.js",
+    "content": "export const jitter = () => Math.random();\n"
+  },
+  "tool_response": { "filePath": "{{ROOT_BS}}\\film\\scenes\\ch01_bad.js", "type": "create" },
+  "tool_use_id": "toolu_fixture_1",
+  "duration_ms": 3
+}

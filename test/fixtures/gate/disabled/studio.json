@@ -1,0 +1,4 @@
+{
+  "title": "gate fixture disabled",
+  "gate": { "enabled": false }
+}

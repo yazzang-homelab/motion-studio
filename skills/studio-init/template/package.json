@@ -1,0 +1,30 @@
+{
+  "name": "motion-film",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "preview": "node tools/serve.mjs --open",
+    "render": "node tools/render.mjs",
+    "render:all": "node tools/render.mjs --format all",
+    "render:final": "node tools/render.mjs --format all --final",
+    "animatic": "node tools/render.mjs --scale 0.5 --fps 30 --sub 1 --draft --out out/animatic",
+    "stills": "node tools/stills.mjs --beats",
+    "critique": "node tools/critique.mjs",
+    "score": "node tools/score.mjs",
+    "beats": "node tools/beats.mjs",
+    "sfx": "node tools/sfx.mjs",
+    "voice": "node tools/voice.mjs",
+    "mix": "node tools/mix.mjs --format all",
+    "deliver": "node tools/deliver.mjs",
+    "lint": "node tools/lint.mjs",
+    "gate": "node tools/gate.mjs",
+    "doctor": "node tools/doctor.mjs",
+    "setup:browser": "playwright install chromium-headless-shell",
+    "refs": "node tools/refs.mjs",
+    "fonts": "node tools/fonts.mjs",
+    "build": "node tools/score.mjs --if-missing && node tools/sfx.mjs && node tools/render.mjs --format all --final && node tools/mix.mjs --format all && node tools/deliver.mjs"
+  },
+  "devDependencies": { "playwright": "^1.63.0" },
+  "optionalDependencies": { "ffmpeg-static": "^5.3.0" }
+}

@@ -1,0 +1,30 @@
+// Lint fixture: a clean film. Mentions of banned APIs live only in comments, strings, templates and regexes:
+// Math.random(), Date.now(), setTimeout(), requestAnimationFrame(), fetch('https://x'), repeat: -1.
+/* block comment: new Date() performance.now() crypto.randomUUID() transition: opacity 1s */
+import { defineFilm, scene } from '../lib/timeline.js';
+import { sp, track } from '../lib/motion.js';
+import { rngFor } from '../lib/rng.js';
+
+const NOTE = 'never call Math.random() or Date.now() in a film';
+const RULE = /Math\.random|setTimeout\(/g;
+const brand = { name: 'Acme', url: 'https://acme.example' }; // shown as text, not fetched
+const help = `seek(${1 + 2}) draws frame t; no requestAnimationFrame`;
+const ratio = 10 / 2 / 5; // division, not a regex
+const dates = { launch: '2026-09-29' };
+const repeatCount = 3; // finite
+const shot = { name: 'intro', transition: 'wipe' }; // a data field, not CSS
+
+export default defineFilm((ctx) => ({
+  scenes: [
+    scene(0, 2, 'hook', (g, lt, c) => {
+      for (let i = 0; i < 12; i++) {
+        const r = rngFor('tile', i); // per-element stream created inside the draw
+        const x = track(lt, [[0, 0], [0.5, c.W * r()]], 'snappy');
+        g.fillRect(x, c.H * r(), 20, 20);
+      }
+      g.fillText(`${brand.url} · ${NOTE.length} ${help.length} ${dates.launch}`, 10, 10);
+      g.globalAlpha = sp(lt - 0.2, 'default') * ratio * repeatCount;
+      if (RULE.test(shot.name)) g.fillRect(0, 0, 1, 1);
+    }),
+  ],
+}));

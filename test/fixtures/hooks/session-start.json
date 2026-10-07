@@ -1,0 +1,8 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "{{OUTSIDE}}/transcript.jsonl",
+  "cwd": "{{ROOT}}",
+  "hook_event_name": "SessionStart",
+  "source": "startup",
+  "model": "claude-opus-5-5"
+}

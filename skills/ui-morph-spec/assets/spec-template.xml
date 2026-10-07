@@ -1,0 +1,73 @@
+<!--
+  motion-studio UI morph spec (six sections). Fill every [...] with the user's facts, keep the tags.
+  Structure credit: the inputs / direction / structure / build / gotchas / start layout follows the
+  public UI-morph template @twoclipping posted on X (https://x.com/twoclipping/status/2103273003555402193,
+  in the main post), and the "real product, real data" rules follow @verbove's MakerMap spec
+  (https://x.com/verbove/status/2103483957266268381). The wording below is motion-studio's own.
+  Save the filled copy as docs/spec.xml in the film project.
+-->
+<spec>
+
+<inputs>
+Collect these before anything else; ask for whatever is missing, offer the default in brackets.
+- Product and URL: [name] ([url])
+- 8 to 12 UI states that tell the product's story, in order: [state 1 ... state N]
+- The real data each state shows (labels, numbers, names; no placeholders): [per state]
+- Brand: colors [bg / ink / one accent], display face [family], UI face [family]
+- Music: a royalty-free track whose license allows this use, near 120 BPM [or: synthesize a
+  minimal UI score at 120 BPM]
+- Formats: [9x16 first, then 1x1 and 16x9]
+- Loop: [yes: the last state morphs back into the first]
+</inputs>
+
+<direction>
+A product film made of one shape. The same container is every state: it changes width, height,
+corner radius and fill from one state to the next and never cuts away. Content inside it swaps
+behind a short, quick fade while the container moves. A cursor causes every change with a real
+click, a typed field or a drag. The camera pushes in on small states and pulls back for big ones
+so each state fills a similar part of the frame.
+Look: [canvas color], one accent, the product's own type. Springs with at most a hint of
+overshoot on UI, none on type.
+Do not use: bouncy easing, glows, gradients on UI chrome, particle bursts, template-looking
+filler, a beat where nothing happens.
+</direction>
+
+<structure>
+[BPM] BPM, [N] bars, one state per downbeat, something moving on every beat.
+[state 1] -> [state 2] -> ... -> [state N] -> back to [state 1]
+Show this as a table: state, bar.beat, start second, what the cursor does, the data on screen,
+the sounds. The seam from the last state to the first lands on a downbeat like every other change.
+</structure>
+
+<build>
+1. Route A in the motion-studio project: film/film.js with defineFilm; one scene per state, all
+   drawing the same container; every value computed from t, no CSS transitions, no timers, no
+   state kept between frames.
+2. Every property of the container (x, y, w, h, radius, each color channel) is a spring track
+   over the state list: one spring per change, loopTrack() for the loop so frame 0 equals frame
+   duration.
+3. Content appears after its container starts morphing and is gone before the next morph:
+   swapAlpha(t, stateStart, nextStart).
+4. Tab or list indicators stretch: their two edges ride different springs (indicator()).
+5. Drags are direct: while the cursor holds, the value follows the cursor; on release it springs
+   from where it was.
+6. Beat grid from the track (node tools/beats.mjs), states on grid.bar(n), UI sounds as cues on
+   grid.beat(n) or on measured hits; the track starts on a downbeat.
+7. Stills per beat and the critique loop before any final render; 60 fps with 4 subframes of
+   motion blur (studio.json fps and subframes).
+</build>
+
+<gotchas>
+Never put will-change, or anything that rasterizes, on elements the camera scales: text goes soft.
+Text that swaps inside a moving container needs its own in and out timing or two labels overlap.
+The last frame must match the first: container, content, cursor position and cursor speed.
+A seam change is a key at t = 0 with the pre-seam value as the first key; keys never sit at t = duration.
+A hard on/off blink (caret, highlight) can register as a single-frame pop; pulse it with a smooth curve.
+</gotchas>
+
+<start>
+Ask for the inputs first. Then show the state list on the beat grid (the table described in the structure section)
+and wait for approval before writing any film code. A rejected list is rewritten, not coded around.
+</start>
+
+</spec>

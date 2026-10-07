@@ -1,0 +1,34 @@
+TASK: replace easing with closed-form springs from lib/motion.js across the film.
+
+SCOPE
+- Edit film/film.js and film/scenes/*.js only. Do not edit lib/, tools/ or index.html.
+- If a scene belongs to a chapter owned by another agent, list the change instead of making it.
+
+RULES
+1. Anything that MOVES (position, scale, rotation, size, radius, camera) uses a spring:
+   - one-shot moves: sp(lt - release, preset)
+   - a value that changes target more than once: track(t, [[time, value], ...], preset). Never restart a spring
+     from the old value; add one key per change so position and velocity stay continuous.
+   - looping films: loopTrack(t, keys, c.film.dur, preset) with the last key value equal to the first. Key times stay in
+     0..c.film.dur (c.dur is the scene length, not the film length); a key at c.film.dur is the seam change.
+   - tab indicators or anything with two edges: indicator(t, stops, { width }).
+   - text or icons inside a morphing container: withAlpha(g, swapAlpha(t, tIn, tOut), ...), so content enters after
+     the morph starts and leaves before the next one.
+2. Presets: tiny overshoot on UI (snappy); none on type (default for text blocks, heavy for hero type and logo
+   lockups); playful only for mascots and stickers. Containers and camera use default.
+3. Keep the timing. Convert an old duration D with springFromFeel({ duration: D, bounce: 0 }) (add bounce 0.1-0.2 for
+   UI only) or pick the preset whose settle time is closest (snappy 0.24 s, default 0.51 s, heavy 0.78 s).
+4. Opacity-only fades may keep easeOutCubic / easeInOutCubic. Linear lerp(a, b, p) on a moving value is not allowed.
+5. stepTime(c.frameLt, 12) (the output frame time: a hard cut between steps) only for hand-drawn drawings; never for
+   camera moves, fades or UI.
+6. Keep every value a pure function of t. No new module-level state, no Math.random (rngFor(name, i) per element),
+   no timers. Clamp values that overshoot out of range (colors 0-255, radius >= 0, alpha 0-1).
+7. Do not change what happens on screen or when; change only how it moves.
+
+AFTER EDITING
+1. npm run lint            -> must report no errors.
+2. npm run stills          -> look at out/review/<format>/contact.png.
+3. node tools/critique.mjs --strip-at <time of the busiest move>  -> look at strip.png for pops, kinks and slides.
+
+REPORT (reply with this table, one row per changed value, then the lint result)
+| file | scene / element | property | before | after (function + preset) | notes |

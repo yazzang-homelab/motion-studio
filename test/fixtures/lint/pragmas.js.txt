@@ -1,0 +1,9 @@
+/* studio-lint-disable no-random-uuid */
+// Lint fixture for pragmas: only the one line carrying an expectation marker may be reported.
+const a = crypto.randomUUID();
+const b = Date.now(); // studio-lint-disable-line no-date
+const c = Date.now(); // studio-lint-disable-line no-math-random -- wrong rule, still reported. expect: no-date
+// studio-lint-disable-next-line no-timers
+setTimeout(() => {}, 0);
+requestAnimationFrame(loop); // studio-allow preview
+const d = Math.random(); // studio-lint-disable-line

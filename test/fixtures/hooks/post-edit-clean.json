@@ -1,0 +1,14 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "{{ROOT}}",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "{{ROOT}}/film/film.js",
+    "old_string": "c.W * c.p",
+    "new_string": "c.W * c.p",
+    "replace_all": false
+  },
+  "tool_response": { "filePath": "{{ROOT}}/film/film.js" },
+  "tool_use_id": "toolu_fixture_3"
+}

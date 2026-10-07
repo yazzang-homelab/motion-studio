@@ -1,0 +1,14 @@
+{
+  "title": "Driftnote teaser",
+  "duration": 6,
+  "fps": 60,
+  "bpm": 120,
+  "formats": ["9x16"],
+  "primaryFormat": "9x16",
+  "brand": {
+    "name": "Driftnote",
+    "url": "https://driftnote.app",
+    "colors": { "bg": "#141413", "fg": "#F0EEE6", "accent": "#D97757", "muted": "#6C6B73" }
+  },
+  "gate": { "enabled": true, "minScore": 8, "minRounds": 3 }
+}

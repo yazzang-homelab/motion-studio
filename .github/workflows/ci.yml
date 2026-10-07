@@ -1,0 +1,156 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pin the CLI so validator behavior only changes when this line changes.
+  CLAUDE_CODE_VERSION: 2.1.284
+  DISABLE_AUTOUPDATER: "1"
+  NPM_CONFIG_AUDIT: "false"
+  NPM_CONFIG_FUND: "false"
+
+jobs:
+  lint-validate:
+    name: lint + validate + unit (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # 90, not 40: every browser start in the unit tests is slow where an antivirus scans Playwright's unsigned headless shell
+    # (measured on one Windows laptop: 15-25 s per start, about 45 min for the whole run). Hosted runners are expected to be
+    # faster [assumption, not measured]; 90 keeps 2x room over the measured worst case and still ends a hung run.
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Claude Code CLI
+        run: npm i -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      - name: Show versions
+        run: |
+          node --version
+          claude --version
+
+      # Dev dependencies (playwright, ffmpeg-static) let the browser/ffmpeg unit tests run on
+      # every OS instead of skipping. No lockfile is committed on purpose (see .gitignore).
+      - name: Install dev dependencies
+        run: npm install
+
+      # The default browser policy: Windows starts Playwright's headless shell only (the tools never start the preinstalled
+      # Chrome/Edge there: a fresh-profile launch counts as a failed logon), so windows-latest needs its own copy. Linux and
+      # macOS prefer the runner's Chrome and fall back to the shell. Linux also needs the system libraries (--with-deps).
+      # Without a browser the browser tests skip instead of running. Runs from the repo root, where npm install put playwright.
+      - name: Install the headless shell for Playwright
+        working-directory: .
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            npx playwright install --with-deps chromium-headless-shell
+          else
+            npx playwright install chromium-headless-shell
+          fi
+
+      - name: Plugin lint (frontmatter allowlists, agent colors, names, CRLF, JSON)
+        run: node scripts/lint-plugin.mjs
+
+      - name: Validate marketplace manifest
+        run: claude plugin validate . --strict
+
+      - name: Validate plugin manifest, hooks, skills, agents
+        run: claude plugin validate .claude-plugin/plugin.json --strict
+
+      # `npm test` runs `node --test` on test/*.test.mjs only. A bare `node --test test/` on Node 20 also
+      # executes every .js/.mjs/.cjs below test/, so fixtures are stored as *.js.txt (hooks.test.mjs checks this).
+      - name: Unit tests
+        run: npm test
+
+  smoke:
+    name: smoke render (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dev dependencies
+        run: npm install
+
+      # The bundled headless shell of the default browser policy, with its Linux system libraries. The runner's own Chrome
+      # is still tried first on Ubuntu ('auto' order: chrome, msedge, bundled); MOTION_BROWSER=chromium would pin the shell.
+      - name: Install the headless shell for Playwright
+        working-directory: .
+        run: npx playwright install --with-deps chromium-headless-shell
+
+      # The smoke test builds its project under os.tmpdir(); TMPDIR pins that to the runner's temp dir and
+      # MOTION_SMOKE_KEEP keeps the project so its outputs can be uploaded below.
+      - name: Smoke test (render twice, stills, score, sfx, mix, critique, deliver)
+        env:
+          SMOKE: "1"
+          MOTION_SMOKE_KEEP: "1"
+          TMPDIR: ${{ runner.temp }}
+        run: node --test test/smoke.test.mjs
+
+      - name: Upload smoke outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-out
+          path: |
+            ${{ runner.temp }}/motion-smoke-*/out/**
+            ${{ runner.temp }}/motion-smoke-*/audio/*.json
+            ${{ runner.temp }}/motion-smoke-*/audio/*.wav
+            ${{ runner.temp }}/motion-smoke-*/studio.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  eval-lint:
+    name: eval lint + self-test (zero cost, no secrets, ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    # The self-test runs each scaffold_script with bash, like the eval runner; on Windows that is the runner's Git Bash.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Claude Code CLI
+        run: npm i -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      # Loads and schema-checks every eval case with --max-cost-usd 0: no model calls, no key.
+      - name: Lint eval suite
+        run: node scripts/eval-lint.mjs
+
+      # Authoring rules, every regex/tool_used grader against its samples, and each scaffold (except the render one)
+      # run in a temp dir and graded untouched and with simulated edits. Node built-ins only, no network.
+      - name: Eval self-test
+        run: npm run eval:selftest

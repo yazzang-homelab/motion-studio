@@ -1,0 +1,7 @@
+/* transition: none;  a comment is ignored */
+@import url("https://fonts.googleapis.com/css2?family=Inter");
+@font-face { font-family: Inter; src: url(assets/fonts/inter-400-latin.woff2) format("woff2"); }
+.a { transition: opacity 1s; }
+.b { will-change: opacity; }
+.c { animation-iteration-count: infinite; }
+.d { background: url(//cdn.example/bg.png); }

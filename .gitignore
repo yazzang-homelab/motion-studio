@@ -1,0 +1,17 @@
+# private working notes (source article copy, research, design drafts) - never published
+.work/
+node_modules/
+out/
+.env
+*.log
+evals/results/
+test/.tmp/
+
+# A root lockfile would make Claude Code run `npm ci` (Playwright + ffmpeg-static) in every
+# user's plugin cache on install. The root package.json is for development only, so keep it unlocked.
+/package-lock.json
+/npm-shrinkwrap.json
+
+# OS and editor noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>lint fixture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter">
+<!-- a comment with <script src="https://cdn.example/x.js"></script> is ignored -->
+<style>
+  html, body { margin: 0; background: #141413; }
+  .card { transition: transform 0.3s ease; }
+  @keyframes spin { to { transform: rotate(1turn); } }
+  .spin { animation: spin 1s linear infinite; }
+</style>
+<a href="https://example.com">a link is not a fetch</a>
+<canvas id="stage" style="will-change: transform"></canvas>
+<script src="https://cdn.example/gsap.js"></script>
+<script type="module">
+  import film from './film/film.js';
+  import { boot } from './lib/runtime.js';
+  const seed = Math.random();
+  boot(film);
+</script>
+<script type="application/json">{"url": "https://example.com", "note": "Math.random()"}</script>

@@ -1,0 +1,8 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "{{OUTSIDE}}",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "cd \"{{ROOT}}\" && node tools/render.mjs --format all --final 2>&1 | tail -n 20" },
+  "tool_use_id": "toolu_fixture_6"
+}

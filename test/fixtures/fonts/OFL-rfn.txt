@@ -1,0 +1,18 @@
+TEST FIXTURE (abbreviated, not a real license text): the wording tools/fonts.mjs looks for in an OFL file.
+
+Copyright (c) 2020, Example Pixel Foundry (https://example.test/),
+with Reserved Font Name "Example Pixel",
+                        "ExamplePixel".
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at: https://openfontlicense.org
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide development of collaborative font projects.
+
+DEFINITIONS
+"Reserved Font Name" refers to any names specified as such after the copyright statement(s).

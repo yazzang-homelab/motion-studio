@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "motion-studio",
+  "description": "Single-plugin marketplace for motion-studio: code-rendered motion design with a seek(t) renderer, springs, beat grid, synthesized sound and a critique loop.",
+  "owner": {
+    "name": "motion-studio contributors",
+    "url": "https://github.com/yazzang-homelab"
+  },
+  "plugins": [
+    {
+      "name": "motion-studio",
+      "source": "./",
+      "description": "Build product reels, showreels and UI animations as deterministic code: seek(t) canvas films rendered frame-exact with Playwright + ffmpeg, scored to the beat and self-critiqued before delivery.",
+      "category": "design",
+      "tags": [
+        "motion-design",
+        "animation",
+        "video",
+        "render",
+        "sound-design"
+      ]
+    }
+  ]
+}

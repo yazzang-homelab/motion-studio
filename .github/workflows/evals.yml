@@ -1,0 +1,133 @@
+name: evals
+
+# Paid model runs: manual or weekly only, never on pull requests. The free lint of the
+# same suite runs on every push in ci.yml (eval-lint job).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Only run cases with this tag (smoke, trigger, scaffold, render, negative). Empty = all."
+        required: false
+        default: ""
+      max_cost_usd:
+        description: "Cost ceiling for the whole run (list-price estimate, USD)."
+        required: false
+        default: "20"
+      model:
+        description: "Agent model override (empty = CLI default)."
+        required: false
+        default: ""
+      judge_model:
+        description: "Judge model for llm graders (empty = CLI default)."
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.284
+  DISABLE_AUTOUPDATER: "1"
+  NPM_CONFIG_AUDIT: "false"
+  NPM_CONFIG_FUND: "false"
+
+jobs:
+  eval:
+    name: claude plugin eval
+    # 22.04: the Bash sandbox needs bubblewrap + socat; 24.04 also needs an AppArmor userns profile.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install sandbox and media tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap socat ffmpeg
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Claude Code CLI
+        run: npm i -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      - name: Install dev dependencies
+        run: npm install
+
+      # Only the render case needs a browser. Its scaffold (evals/render-smoke/scaffold.sh) downloads Playwright's headless shell
+      # into the run workspace, because the agent's HOME is a temp dir, so the runner needs just the shell's system libraries.
+      - name: Install the system libraries of the Playwright headless shell
+        working-directory: .
+        run: npx playwright install-deps chromium-headless-shell
+
+      - name: Check API key secret
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Run eval suite
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_TAG: ${{ inputs.tag }}
+          EVAL_MAX_COST: ${{ inputs.max_cost_usd || '20' }}
+          EVAL_MODEL: ${{ inputs.model }}
+          EVAL_JUDGE_MODEL: ${{ inputs.judge_model }}
+        run: |
+          # Target first: --tag and --allow-tools take several values and swallow what follows.
+          args=(plugin eval . --trust-plugin --no-publish --json results.json --threshold 0.8
+                --max-cost-usd "${EVAL_MAX_COST}" -j 2)
+          if [ -n "${EVAL_TAG}" ]; then args+=(--tag "${EVAL_TAG}"); fi
+          if [ -n "${EVAL_MODEL}" ]; then args+=(--model "${EVAL_MODEL}"); fi
+          if [ -n "${EVAL_JUDGE_MODEL}" ]; then args+=(--judge-model "${EVAL_JUDGE_MODEL}"); fi
+          args+=(--allow-tools Write Edit "Bash(node *)" "Bash(npm *)" "Bash(npx *)" --scaffold)
+          echo "claude ${args[*]}"
+          claude "${args[@]}"
+
+      - name: Summarize results
+        if: always()
+        run: |
+          if [ ! -f results.json ]; then
+            echo "No results.json was written." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Quoted heredoc: the shell expands nothing, node reads the script from stdin.
+          node - >> "$GITHUB_STEP_SUMMARY" <<'JS'
+          const r = JSON.parse(require("node:fs").readFileSync("results.json", "utf8"));
+          const a = r.aggregates || {};
+          const lines = [
+            "## motion-studio evals",
+            "",
+            `- Claude Code: ${r.claudeVersion ?? "?"}`,
+            `- Cases passed: ${a.casesPassed ?? "?"} / ${a.casesTotal ?? "?"}`,
+            `- Overall score: ${a.overallScore ?? "?"}`,
+            `- Cost (USD, list-price estimate): ${r.costUsd ?? "?"}`,
+            `- Partial: ${r.partial ? "yes (" + (r.partialReason ?? "?") + ")" : "no"}`,
+            "",
+            "| case | score | pass rate |",
+            "|---|---|---|",
+            ...(r.cases || []).map((c) => `| ${c.name} | ${c.aggregates?.score ?? "?"} | ${c.aggregates?.passRate ?? "?"} |`),
+          ];
+          console.log(lines.join("\n"));
+          JS
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: |
+            results.json
+            evals/results/
+          if-no-files-found: ignore
+          retention-days: 30

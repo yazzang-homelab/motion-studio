@@ -1,0 +1,4 @@
+{
+  "title": "gate fixture custom axes",
+  "gate": { "minRounds": 1, "minScore": 6, "axes": ["hook", "motion", "depth"] }
+}

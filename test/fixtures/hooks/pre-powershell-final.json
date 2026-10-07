@@ -1,0 +1,8 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "{{OUTSIDE_BS}}",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "PowerShell",
+  "tool_input": { "command": "Set-Location '{{ROOT_BS}}'; npm run build" },
+  "tool_use_id": "toolu_fixture_7"
+}

@@ -1,0 +1,10 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "{{ROOT}}",
+  "hook_event_name": "PreToolUse",
+  "agent_id": "agent-fixture",
+  "agent_type": "motion-studio:chapter-animator",
+  "tool_name": "Write",
+  "tool_input": { "file_path": "{{ROOT_BS}}\\film\\scenes\\ch02_chart.js", "content": "export const ch02 = [];\n" },
+  "tool_use_id": "toolu_fixture_10"
+}

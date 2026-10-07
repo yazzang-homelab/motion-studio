@@ -1,0 +1,14 @@
+{
+  "name": "hook-fixture-film",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node tools/render.mjs",
+    "render:all": "node tools/render.mjs --format all",
+    "render:final": "node tools/render.mjs --format all --final",
+    "stills": "node tools/stills.mjs --beats",
+    "critique": "node tools/critique.mjs",
+    "ship": "node tools/score.mjs --if-missing && node tools/render.mjs --format all --final",
+    "build": "node tools/render.mjs --format all --final && node tools/mix.mjs --format all"
+  }
+}

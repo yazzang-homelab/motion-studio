@@ -1,0 +1,8 @@
+{
+  "session_id": "fixture-session",
+  "cwd": "{{ROOT}}",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "npm run render -- --draft && npm run stills" },
+  "tool_use_id": "toolu_fixture_8"
+}

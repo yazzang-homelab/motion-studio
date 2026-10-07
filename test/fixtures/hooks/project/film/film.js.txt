@@ -1,0 +1,19 @@
+// Fixture film for the hook tests: a pure function of time. Stored as film.js.txt so no test runner
+// (Node 20's `node --test test/` loads every .js/.mjs/.cjs below test/) executes it; makeProject() in
+// test/hooks.test.mjs copies it into each temp project as film/film.js.
+export default {
+  __film: true,
+  factory: () => ({
+    scenes: [
+      {
+        from: 0,
+        to: 4,
+        name: 'card',
+        draw: (g, lt, c) => {
+          g.fillStyle = '#F0EEE6';
+          g.fillRect(0, 0, c.W * c.p, 40);
+        },
+      },
+    ],
+  }),
+};
