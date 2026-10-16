@@ -108,6 +108,26 @@ export const PROBES = {
 const firstLine = (err) => String(err?.message ?? err).split('\n')[0];
 
 /**
+ * The WebGL renderer the films' GL layers (lib/gl.js, lib/three-layer.js) will get, e.g. "SwiftShader (software GL)", or
+ * null when the probe has no real page (an injected test browser) or WebGL2 is unavailable. studio.json "gl": "software"
+ * pins SwiftShader, so this names what a WebGL frame hash depends on.
+ */
+async function webglRenderer(browser) {
+  if (typeof browser?.newPage !== 'function') return null;
+  const page = await browser.newPage();
+  try {
+    return await page.evaluate(() => {
+      const gl = document.createElement('canvas').getContext('webgl2');
+      if (!gl) return 'unavailable (WebGL2 context refused; 2D films are unaffected)';
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const r = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      return /swiftshader/i.test(r) ? 'SwiftShader (software GL, same pixels on every machine)' : `${r.slice(0, 80)} (GPU: GL frames differ between machines)`;
+    });
+  } finally { await page.close().catch(() => {}); }
+}
+
+/**
  * All checks, in table order: [{ id, label, status: ok|fail|warn|info|timeout, detail, fix, required }].
  * `cleanups` collects background work the CLI lets finish before exiting (a launched browser closing).
  */
@@ -142,7 +162,9 @@ export async function checks(root, { timeouts = TIMEOUTS, probes = PROBES, clean
       const b = await withTimeout(() => P.browser(base, cfg ?? {}), T.browser, { onLate: (x) => x?.browser?.close?.().catch(() => {}) });
       if (b === TIMED_OUT) return late('browser', T.browser, 'launching headless Chrome/Edge/Chromium');
       cleanups.push(Promise.resolve().then(() => b.browser.close()).catch(() => {})); // closing can take seconds; not part of the check
-      const detail = `${b.via} ${b.version}${process.env.MOTION_CHROME_PATH ? ' (MOTION_CHROME_PATH)' : ''}`;
+      const gl = await withTimeout(() => webglRenderer(b.browser), 15000).catch(() => null);
+      const glNote = typeof gl === 'string' ? ` · WebGL: ${gl}` : '';
+      const detail = `${b.via} ${b.version}${process.env.MOTION_CHROME_PATH ? ' (MOTION_CHROME_PATH)' : ''}${glNote}`;
       // launchBrowser reports the risk itself; a probe that only names the browser (via chrome | msedge) counts as installed too.
       const risky = b.risk !== undefined ? b.risk !== null : OS === 'win32' && (b.via === 'chrome' || b.via === 'msedge');
       if (risky) add('browser', 'warn', `${detail}: ${BROWSER_RISK}`, fixFor('browser'));

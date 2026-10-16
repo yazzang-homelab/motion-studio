@@ -4,6 +4,9 @@
 // critique.mjs feeds them pixels.
 import { fmtTime, UsageError } from './studio.mjs';
 import { meanAbsDiff, imageStats, silenceLabel } from './refs.mjs';
+import { regionLuma, flashMetric } from './critique-flash.mjs';
+
+export { FLASH, regionLuma, lumaTransitions, flashMetric } from './critique-flash.mjs';
 
 export const CRIT_DEFAULTS = { deadSpanSec: 2.0, staticEps: 0.35, cornerPct: 0.08, popRatio: 3.0, stepped: false, popIgnore: [] };
 export const LEAD_IN = new Set(['whoosh', 'swoosh', 'riser']); // anticipation cues sit before the beat on purpose
@@ -247,6 +250,7 @@ export class Analyzer {
     this.d = new Float64Array(frames + 1).fill(NaN); // d[k] = |f[k-1] − f[k]|
     this.bridge = new Float64Array(frames + 1).fill(NaN); // bridge[k] = |f[k-1] − f[k+1]|
     this.samples = []; // 10 fps: { t, k, diff, stats }
+    this.luma = Array.from({ length: 5 }, () => new Float64Array(frames + 1).fill(NaN)); // regionLuma per frame (flashes)
     this.nextSample = k0;
     this.sampleNo = 0;
   }
@@ -272,6 +276,7 @@ export class Analyzer {
   }
   /** Streaming path (video mode): every frame in order. */
   push(buf, k, w, h) {
+    this.setLuma(k, regionLuma(buf, w, h));
     if (this.prev) this.d[k] = meanAbsDiff(this.prev, buf, this.noise);
     if (this.prev2) this.bridge[k - 1] = meanAbsDiff(this.prev2, buf, this.noise);
     if (k >= this.nextSample) {
@@ -284,12 +289,17 @@ export class Analyzer {
     this.count = k + 1;
   }
   /** Precomputed path (live mode): per-frame diffs from the page plus the 10 fps sample frames, in order. */
-  ingest({ d, bridge, samples, last, count, w, h }) {
+  ingest({ d, bridge, samples, last, count, w, h, luma = null }) {
     for (const [k, v] of Object.entries(d)) this.d[Number(k)] = v;
+    if (luma) for (const [k, v] of Object.entries(luma)) this.setLuma(Number(k), v);
     for (const [k, v] of Object.entries(bridge)) this.bridge[Number(k)] = v;
     for (const s of samples) this.sample(s.buf, s.k, w, h);
     this.prev = last;
     this.count = count;
+  }
+  setLuma(k, values) {
+    if (!(k >= 0 && k < this.luma[0].length) || !Array.isArray(values)) return;
+    values.forEach((v, r) => { if (r < 5) this.luma[r][k] = v; });
   }
   finish({ shots, cues, beats }) {
     const { fps, crit, k0 } = this;
@@ -364,6 +374,8 @@ export class Analyzer {
       borders: { share: borderShare, sides: sideShare, pass: borderShare < 0.25 },
       seam: N >= 3 ? { seamDiff: round(meanAbsDiff(this.prev, this.f0, this.noise), 3), prevDiff: round(this.d[N - 1], 3) } : null,
       stripCenter: bestK,
+      flash: this.luma[0].some(Number.isFinite) ? flashMetric(this.luma.map((a) => a.subarray(0, N)), fps, { k0 })
+        : { skipped: true, reason: 'no per-frame luminance in this pass', pass: true },
     };
   }
 }
@@ -528,6 +540,10 @@ export function findings(r, crit) {
     if (!r.loop.continuity) why.push(`loop seam jumps: last→first diff ${r.loop.seamDiff} vs ${r.loop.prevDiff} between the last two frames (ratio ${r.loop.ratio ?? 'n/a'}, needs ≤ ${LOOP_RATIO})`);
     if (!r.loop.closes) why.push(`loop does not close: frame t=dur (unwrapped) ≠ frame 0 (hash differs, mean diff ${r.loop.endDiff ?? 'n/a'}; loop.png): something does not return to its start value (loopTrack, last key = first)`);
     add('P0', r.film.duration, why.join('; '), 'loop');
+  }
+  if (px.flash && !px.flash.skipped && !px.flash.pass) {
+    const s = px.flash.spans[0];
+    add('P0', s?.from ?? px.flash.worstAt, `photosensitive flash risk: ${px.flash.worst} flashes within 1 s (${s?.region ?? px.flash.worstRegion}${px.flash.spans.length ? `, ${px.flash.spans.map((x) => `${fmtTime(x.from)}–${fmtTime(x.to)}`).slice(0, 4).join(', ')}` : ''}); keep it to ≤ ${px.flash.maxPerSecond} luminance flashes per second (WCAG 2.3.1): slow the strobe, lower its contrast below a 10% luminance swing, or shrink the flashing area`, 'flash');
   }
   for (const s of px.deadSpans.spans) add('P1', s.from, `dead span ${s.sec} s until ${fmtTime(s.to)}: nothing moves (mean diff < ${crit.staticEps})`, 'deadSpans', s.isNew);
   for (const p of px.pops.list.filter((x) => !x.atShotBoundary).sort((x, y) => (y.isNew === true) - (x.isNew === true)).slice(0, 6)) {

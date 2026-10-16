@@ -23,7 +23,8 @@ poll; see the pipeline runbook of `/motion-studio:motion-reel`, section "Long co
 | `render:final` | `render.mjs --format all --final` | final quality; blocked by the plugin hook until the critique gate passes |
 | `animatic` | `render.mjs --scale 0.5 --fps 30 --sub 1 --draft --out out/animatic` | fast half-size pass for pacing |
 | `stills` | `tools/stills.mjs --beats` | `out/review/<fmt>/contact.png`, one still per beat; a sheet taller than 1800 px or wider than 1990 px is paged: page 1 is `contact.png`, then `contact-2.png`, `contact-3.png` ... |
-| `critique` | `tools/critique.mjs` | `out/review/<fmt>/` contact, shots, phone, strip (each paged like `stills`), `loop.png` (loop films), `metrics.json/.md` (determinism, glyph coverage of the drawn text, pops, silent spans ...); with `--video` the same files in `out/review/<fmt>/video/` |
+| `critique` | `tools/critique.mjs` | `out/review/<fmt>/` contact, shots, phone, strip (each paged like `stills`), `loop.png` (loop films), `metrics.json/.md` (determinism, glyph coverage of the drawn text, pops, silent spans, flashes over 3 per second, the film's numeric checks ...); with `--video` the same files in `out/review/<fmt>/video/` |
+| `probe` | `tools/probe.mjs` | the film's probe series, check verdicts and loop seam (value and velocity) → `out/review/<fmt>/probes.json`, `motion.png` (speed graph: value and velocity per probe, beats, shots, failing frames), `onion.png` with `--onion A:B[:STEP]`; exit 1 on a failing check |
 | `gate` | `tools/gate.mjs [--json]` | pass/fail from `docs/review_log.md` against `studio.json` `gate` (minRounds, minScore, axes, naAllowed, requireFormats); exit 0 or 1 |
 | `lint` | `tools/lint.mjs` | determinism and house-rule problems; exit 1 on errors |
 | `score` | `tools/score.mjs` | `audio/music.wav` + analytic `audio/beats.json` |
@@ -32,6 +33,7 @@ poll; see the pipeline runbook of `/motion-studio:motion-reel`, section "Long co
 | `voice` | `tools/voice.mjs` | `audio/voice.wav` via ElevenLabs (`--dry-run` first) |
 | `mix` | `tools/mix.mjs --format all` | `out/score.wav`, `out/<fmt>/final.mp4`, `out/final.mp4` |
 | `deliver` | `tools/deliver.mjs` | checks (including silent spans) + `out/deliver/` (video, poster, every contact page), `docs/production.json` |
+| `gif` | `tools/gif.mjs` | `out/<fmt>/<title>_<fmt>.gif` from `final.mp4` (or `silent.mp4`): two-pass palette, fps snapped to whole centiseconds (50, 33.3, 25, 20 ...; default 25), loops forever; parses the GIF back and checks frames, delays, length and loop |
 | `doctor` | `tools/doctor.mjs` | environment table with fixes (Windows: the bundled headless shell is `ok`, an installed Chrome or Edge is `warn`; info row `windows-logon-guard`) |
 | `setup:browser` | `playwright install chromium-headless-shell` | downloads Playwright's headless shell (about 115 MB) into Playwright's browser cache (`%LOCALAPPDATA%\ms-playwright` on Windows); required on Windows, optional elsewhere when Chrome or Edge is installed |
 | `refs` | `tools/refs.mjs extract\|analyze` | `refs/frames/`, `refs/contact.png` (paged: `contact-2.png` ...), `refs/analysis.json` |
@@ -48,6 +50,8 @@ poll; see the pipeline runbook of `/motion-studio:motion-reel`, section "Long co
 | `score.mjs` | `--bpm N` `--dur S` `--style pulse\|piano\|minimal\|cinematic` `--key A` `--mode minor\|major` `--seed N` `--drop BAR` `--loop` `--out FILE` `--beats FILE\|none` `--if-missing` (defaults from `studio.json` `audio.style/key/mode/seed`, `loop`) |
 | `beats.mjs` | `<track>` `--out FILE` `--engine auto\|librosa\|js` `--bpm-hint N` (30 to 300) `--no-cache` |
 | `deliver.mjs` | `--format f\|all\|a,b` (re-delivers only those formats, keeps the others) `--json` |
+| `probe.mjs` | `--format f` `--from S` `--to S` `--fps N` `--channels a,b` `--onion A:B[:STEP]` `--json` |
+| `gif.mjs` | `--format f\|all\|a,b` `--fps N` `--width PX` `--colors N` `--dither bayer\|sierra2_4a\|floyd_steinberg\|none` `--from S` `--to S` `--once` `--max-bytes N` `--json` |
 | `sfx.mjs` | `--cues FILE` `--format f` `--out FILE` `--dur S` `--seed N` `--samples DIR\|none` (`--no-samples`) `--dump-cues` `--list` |
 | `mix.mjs` | `--format f\|all` `--music P\|none` `--sfx P\|none` `--voice P\|none` `--lufs -14` (-70 to -5) `--tp -1` (-20 to 0) `--no-duck` `--allow-short-stems` (mix a short, empty or silent stem anyway) |
 | `voice.mjs` | `--script audio/voice.json` `--dry-run` `--voice-id ID` `--model eleven_multilingual_v2` |

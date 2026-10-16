@@ -5,6 +5,7 @@
 import { clamp } from './motion.js';
 import { rngFor } from './rng.js';
 import { layout } from './layout.js';
+import { normalizeChecks } from './checks.js';
 
 export const SFX_TYPES = Object.freeze(['click', 'tick', 'pop', 'thump', 'whoosh', 'swoosh', 'riser', 'hit', 'chime', 'type', 'glitch', 'snap']);
 
@@ -287,6 +288,9 @@ export function buildFilm(film, ctx) {
     if (!Array.isArray(v)) throw new Error('cues must be an array or (grid) => array');
     raw.push(...v);
   }
+  // checks: numeric assertions over c.probe() series (lib/checks.js), evaluated by tools/probe.mjs and the critique.
+  const checkSrc = typeof spec.checks === 'function' ? spec.checks(ctx && ctx.grid, ctx) : spec.checks;
+  const checks = normalizeChecks(checkSrc);
   const capture = spec.capture == null ? 'canvas' : spec.capture;
   if (capture !== 'canvas' && capture !== 'page') throw new Error(`capture must be 'canvas' or 'page' (got ${capture})`);
   const colors = (ctx && ctx.brand && ctx.brand.colors) || {};
@@ -297,6 +301,7 @@ export function buildFilm(film, ctx) {
     overlays,
     shots,
     cues: normalizeCues(raw),
+    checks,
     setup: typeof spec.setup === 'function' ? spec.setup : null,
   };
 }
@@ -329,7 +334,7 @@ function resetState(g) {
 // Paint frame t: background, then every scene with from <= t < to in array order (built.scenes is sorted by layer,
 // then from; overlaps allowed), then every overlay by the same rule in its own array order, on top of all scenes.
 // At the film's very end (t == dur) scenes and overlays that end exactly there still draw, so seek(dur) shows the
-// final state, not an empty bg. frameCtx = { W, H, u, fmt, L, grid, brand, fps, dur, film, frameT, sub, subs }. The
+// final state, not an empty bg. frameCtx = { W, H, u, fmt, L, grid, brand, fps, dur, film, frameT, sub, subs, probes? }. The
 // caller owns the transform (logical px).
 //
 // Time seen by scene code. Motion blur averages `subs` subframes of one output frame, so the physical model is:
@@ -344,6 +349,28 @@ function resetState(g) {
 // render; c.frame * c.subs + c.sub gives every subframe its own grain, which the blur then averages down) and stepped
 // time ("on twos") uses frameT / frameLt so a step is a hard cut, not a 50/50 blend of two steps:
 // stepTime(c.frameLt, 12).
+//
+// Probes: c.probe(name, value) records a number for this paint into frameCtx.probes (a Map or a plain object) when the
+// caller passes one, and does nothing otherwise. value = finite number | boolean (0/1) | [x, y, z?, w?] (name.x ...).
+// Names are global (no scene prefix); the last write of a name in one paint wins. See lib/checks.js.
+const noProbe = () => {};
+const SWIZZLE = ['x', 'y', 'z', 'w'];
+function probeInto(sink) {
+  const put = sink instanceof Map ? (k, v) => sink.set(k, v) : (k, v) => { sink[k] = v; };
+  const bad = (name, value) => new TypeError(`probe("${name}"): value must be a finite number, a boolean or [x, y, z?, w?] (got ${Array.isArray(value) ? `[${value.join(', ')}]` : String(value)})`);
+  return (name, value) => {
+    if (typeof name !== 'string' || !name) throw new TypeError('probe(name, value): name must be a non-empty string');
+    if (typeof value === 'boolean') put(name, value ? 1 : 0);
+    else if (typeof value === 'number') {
+      if (!Number.isFinite(value)) throw bad(name, value);
+      put(name, value);
+    } else if (Array.isArray(value) && value.length >= 1 && value.length <= 4) {
+      if (!value.every((v) => typeof v === 'number' && Number.isFinite(v))) throw bad(name, value);
+      value.forEach((v, i) => put(`${name}.${SWIZZLE[i]}`, v));
+    } else throw bad(name, value);
+  };
+}
+
 export function renderFrame(built, g, t, frameCtx = {}) {
   const film = frameCtx.film || {};
   const W = frameCtx.W ?? film.W;
@@ -353,7 +380,8 @@ export function renderFrame(built, g, t, frameCtx = {}) {
   const frameT = Number.isFinite(frameCtx.frameT) ? frameCtx.frameT : t;
   const subs = Number.isInteger(frameCtx.subs) && frameCtx.subs >= 1 ? frameCtx.subs : 1;
   const sub = Number.isInteger(frameCtx.sub) && frameCtx.sub >= 0 && frameCtx.sub < subs ? frameCtx.sub : 0;
-  const base = { W, H, u: frameCtx.u ?? film.u ?? 1, fmt: frameCtx.fmt ?? film.fmt, L: frameCtx.L ?? film.L, grid: frameCtx.grid ?? film.grid, brand: frameCtx.brand ?? film.brand, fps, film, frameT, sub, subs };
+  const probe = frameCtx.probes && typeof frameCtx.probes === 'object' ? probeInto(frameCtx.probes) : noProbe;
+  const base = { W, H, u: frameCtx.u ?? film.u ?? 1, fmt: frameCtx.fmt ?? film.fmt, L: frameCtx.L ?? film.L, grid: frameCtx.grid ?? film.grid, brand: frameCtx.brand ?? film.brand, fps, film, frameT, sub, subs, probe };
   const frame = Math.floor(frameT * fps + 1e-6);
   const atEnd = t >= dur - 1e-9;
   g.save();

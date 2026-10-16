@@ -98,3 +98,13 @@ export function noise2(x, y, seed = 0) {
   const top = a + (b - a) * fx;
   return top + (c + (d - c) * fx - top) * fy;
 }
+
+// Noise that loops: sample noise2 on a circle, one turn per `dur` seconds, so t = 0 and t = dur read the same point and
+// the drift has no seam (sampling noise1(t) and wrapping t jumps at the seam). radius sets how much the value wanders
+// per loop (the circle is 2π·radius lattice cells long); offset moves the circle to decorrelate channels (x, y, rot).
+export function loopNoise(t, dur, { radius = 1, seed = 0, offset = 0 } = {}) {
+  if (!(dur > 0)) throw new Error(`loopNoise: dur must be > 0 (got ${dur})`);
+  if (!Number.isFinite(t)) return 0;
+  const a = (2 * Math.PI * (((t % dur) + dur) % dur)) / dur;
+  return noise2(offset + radius * Math.cos(a), offset * 1.618 + radius * Math.sin(a), seed);
+}

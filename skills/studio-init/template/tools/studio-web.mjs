@@ -133,6 +133,13 @@ export async function importPlaywright(root = process.cwd()) {
 export const BROWSER_ARGS = Object.freeze(['--disable-accelerated-2d-canvas', '--force-color-profile=srgb', '--disable-lcd-text',
   '--hide-scrollbars', '--mute-audio', '--font-render-hinting=none']);
 
+// WebGL layers (lib/gl.js, lib/three-layer.js) hash the same on every machine only on one GL backend. studio.json "gl":
+// "software" (default) pins ANGLE to SwiftShader, which Chrome 137+ no longer falls back to on its own without
+// --enable-unsafe-swiftshader; "gpu" leaves the choice to Chrome (faster, but frames then differ between machines).
+// A 2D-only film is unaffected: its canvas rasterizes on the CPU either way.
+export const GL_SOFTWARE_ARGS = Object.freeze(['--use-angle=swiftshader', '--enable-unsafe-swiftshader']);
+export const glArgs = (gl = 'software') => (gl === 'gpu' ? [] : [...GL_SOFTWARE_ARGS]);
+
 /** The value of `promise`, or `fallback` when it rejects or takes longer than `ms`. Never rejects. */
 function within(promise, ms, fallback) {
   let timer;
@@ -395,7 +402,7 @@ export function launchFailureMessage(failures, { platform = process.platform, au
  */
 export async function launchBrowser(root, cfg = {}, { headless = true } = {}) {
   const pw = await importPlaywright(root);
-  const args = [...BROWSER_ARGS];
+  const args = [...BROWSER_ARGS, ...glArgs(cfg.gl)];
   if (process.platform === 'linux') args.push('--no-sandbox');
   const attempts = browserAttempts(cfg.browser ?? 'auto', process.platform, process.env, { headless });
   const failures = [];

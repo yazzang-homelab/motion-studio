@@ -103,7 +103,11 @@ finish). Shrink the case first (step 3): most bugs reproduce in seconds.
 `--draft` and `--sub 1` for anything not final -> `--scale 0.5` for pacing checks -> `--fps 30` for animatics ->
 `--workers N` (default min(4, max(1, floor(cpus / 3))); raise on big machines, lower when RAM is tight) -> `--chunk 10`
 for films over about 30 s, a final of three formats, or overnight runs (resumable `.parts/`: an interruption resumes). Heavy draws: cache immutable geometry in the
-factory, avoid per-frame `getImageData`, draw text at its real size instead of scaling the context.
+factory, avoid per-frame `getImageData`, draw text at its real size instead of scaling the context. GL layers run on
+software GL (SwiftShader, `studio.json` `"gl": "software"`) so they hash the same on every machine; a heavy raymarch
+costs per pixel and per subframe: render the layer at `scale: 0.5` to `0.75` for drafts, keep `--sub 1` until the final,
+and measure ms per frame before a full render. Never switch a film to `"gl": "gpu"` to go faster without telling the
+main session: GPU output differs between machines and drivers.
 
 ## Hard rules
 

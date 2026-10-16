@@ -266,6 +266,20 @@ export const SAMPLES = [
   { case: 'render-smoke', grader: 'reports-path', label: 'full render path', pass: true, text: 'Rendered to out/9x16/silent.mp4.' },
   { case: 'render-smoke', grader: 'reports-path', label: 'windows path', pass: true, text: 'File: out\\9x16\\clip_0.00-2.00.mp4' },
   { case: 'render-smoke', grader: 'reports-path', label: 'wrong file', pass: false, text: 'Rendered to out/final.mp4.' },
+
+  // ---- motion-spec-numbers
+  ...skillFired('motion-spec-numbers', 'motion-reel', 'showreel'),
+  { case: 'motion-spec-numbers', grader: 'frames-and-damping', label: 'numeric spec', pass: true,
+    text: 'TIME: 6 s · 60 fps · 360 frames (0..359)\nSHOTS:\n- Frames 0-30: light sweep\n- Frames 60-90: lid opens 100° on a spring, ζ 0.6\nCAMERA: FOV 30°, dolly in 8%' },
+  { case: 'motion-spec-numbers', grader: 'frames-and-damping', label: 'adjectives only', pass: false,
+    text: 'A premium, cinematic 6-second loop: the lid pops open with a playful bounce, the buds float up, and the camera glides in.' },
+
+  // ---- trigger-gl-scenes
+  ...skillFired('trigger-gl-scenes', 'gl-scenes', 'springs'),
+  { case: 'trigger-gl-scenes', grader: 'sdf-smooth-min', label: 'raymarched SDF with smin', pass: true,
+    text: 'One signed distance field: map(p) = smin(blob, text, k). Raymarch it in a glLayer fragment shader.' },
+  { case: 'trigger-gl-scenes', grader: 'sdf-smooth-min', label: 'cross-fade meshes', pass: false,
+    text: 'Model the blob and the word as two meshes in Three.js and cross-fade their opacity during the morph.' },
 ];
 
 export const WORKSPACE_CHECKS = {

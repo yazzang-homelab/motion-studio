@@ -31,6 +31,7 @@ import { filmHash, assetsHash, writeFilmHash, checkFilmHash, detKey, toolHash, r
 import { readBaseline, compareBaseline, nextBaseline, writeBaseline, deltaLines, suppressedLines } from './critique-baseline.mjs';
 import { CRIT_DEFAULTS, findings } from './critique-metrics.mjs';
 import { critiqueLive } from './critique-live.mjs';
+import { checkFindings } from './probe.mjs';
 import { critiqueVideo } from './critique-video.mjs';
 import { reviewDir, relDir, otherEvidence, report } from './critique-report.mjs';
 
@@ -111,6 +112,13 @@ function checkHashCommand(root, fmt, flags) {
   return c.match === true ? 0 : 1;
 }
 
+/** Failing numeric checks (P0, tools/probe.mjs) merged into the findings in the same order findings() sorts by. */
+function withChecks(list, extra) {
+  if (!extra.length) return list;
+  const rank = { P0: 0, P1: 1, P2: 2 };
+  return [...list, ...extra].sort((a, b) => rank[a.severity] - rank[b.severity] || (b.new ? 1 : 0) - (a.new ? 1 : 0) || (a.t ?? 1e9) - (b.t ?? 1e9));
+}
+
 async function review(root, cfg, fmt, flags, outDir, closers) {
   const crit = { ...CRIT_DEFAULTS, ...cfg.critique };
   const t0 = Date.now();
@@ -131,7 +139,7 @@ async function review(root, cfg, fmt, flags, outDir, closers) {
   // Baseline: mark every candidate new or same against the previous run of this folder, then replace the baseline.
   const prevBase = readBaseline(outDir);
   const delta = compareBaseline(prevBase, r.px, { tol: r.px.pops.note ? 0.2 : 2 / r.film.fps, range: r.range, filmHash: pin.hash });
-  r.findings = findings(r, crit);
+  r.findings = withChecks(findings(r, crit), checkFindings(r.checks));
   writeBaseline(outDir, nextBaseline(prevBase, r.px, { mode: r.mode, format: fmt, fps: r.film.fps, range: r.range, filmHash: pin.hash }));
   writeFilmHash(outDir, pin, { mode: r.mode, format: fmt, createdAt: new Date().toISOString(), ...(changed ? { changedDuringRun: true, filmHashAtEnd: after.hash } : {}) });
   const gate = checkGate(root, cfg);
@@ -140,7 +148,7 @@ async function review(root, cfg, fmt, flags, outDir, closers) {
   const nextRound = (rounds.length ? Math.max(...rounds.map((x) => x.n)) : 0) + 1;
   const { px, ...rest } = r;
   const metrics = { version: 1, createdBy: 'motion-studio', tool: 'critique', format: fmt, dir: relDir(root, outDir), critique: crit, seconds: Math.round((Date.now() - t0) / 100) / 10, ...rest,
-    ...Object.fromEntries(['deadSpans', 'pops', 'frame0', 'corners', 'borders'].map((k) => [k, px[k]])), sampled: px.sampled,
+    ...Object.fromEntries(['deadSpans', 'pops', 'frame0', 'flash', 'corners', 'borders'].map((k) => [k, px[k]])), sampled: px.sampled,
     filmHash: pin.hash, filmHashFiles: Object.keys(pin.files).length, ...(changed ? { filmChangedDuringRun: true, filmHashAtEnd: after.hash } : {}),
     determinismCache: live ? { key, reused: !!cached, enabled: !!flags.skipDeterminismRepeat } : null,
     baseline: { file: 'baseline.json', first: !prevBase, delta: delta && { previous: delta.previous, sameFilm: delta.sameFilm, total: delta.total, same: delta.same, new: delta.new, gone: delta.gone } },
@@ -155,7 +163,7 @@ async function review(root, cfg, fmt, flags, outDir, closers) {
   writeFileAtomic(path.join(outDir, 'metrics.md'), md);
   if (flags.json) {
     process.stdout.write(JSON.stringify({ ok: true, format: fmt, mode: r.mode, dir: where.dir, other: where.other, images: r.images, pages: r.pages, range: r.range,
-      summary: { determinism: r.determinism.reused ? 'reused' : r.determinism.skipped ? 'skip' : r.determinism.pass ? 'pass' : 'fail', fonts: r.fonts.skipped ? 'skip' : r.fonts.pass ? 'pass' : 'fail', deadSpans: px.deadSpans.spans.length, pops: px.pops.list.filter((p) => !p.atShotBoundary).length, frame0: px.frame0.skipped ? null : px.frame0.pass, loop: r.loop.enabled ? r.loop.pass : null, corners: px.corners.pass, borders: px.borders.pass, syncShare: r.sync.share, audio: r.audio.skipped ? null : r.audio.pass, audioGaps: r.audio.silence?.gaps ? r.audio.silence.gaps.length : null },
+      summary: { determinism: r.determinism.reused ? 'reused' : r.determinism.skipped ? 'skip' : r.determinism.pass ? 'pass' : 'fail', fonts: r.fonts.skipped ? 'skip' : r.fonts.pass ? 'pass' : 'fail', deadSpans: px.deadSpans.spans.length, pops: px.pops.list.filter((p) => !p.atShotBoundary).length, frame0: px.frame0.skipped ? null : px.frame0.pass, flash: px.flash && !px.flash.skipped ? px.flash.pass : null, loop: r.loop.enabled ? r.loop.pass : null, corners: px.corners.pass, borders: px.borders.pass, syncShare: r.sync.share, audio: r.audio.skipped ? null : r.audio.pass, audioGaps: r.audio.silence?.gaps ? r.audio.silence.gaps.length : null, ...(r.checks ? { checks: r.checks.pass ? 'pass' : 'fail' } : {}) },
       filmHash: pin.hash, delta: delta && { same: delta.same, total: delta.total, new: delta.new.length, gone: delta.gone.length },
       findings: r.findings, nextRound, gate: { pass: gate.pass, reasons: gate.reasons } }) + '\n');
   } else process.stdout.write(md);

@@ -4,6 +4,9 @@
 // Everything is a pure function of time and of L (the format layout): no literal pixels, no carried state.
 // Replace it with your film and keep the pattern: shots on the beat grid, springs from lib/motion.js, per-element
 // seeds from rngFor, cues taken from the same grid.
+// Probes and checks (lib/checks.js) are data only: c.probe(name, value) records a number per frame for npm run probe and
+// the critique, never a pixel. Probes sit behind !c.depth because the contact sheet and the format frames replay the
+// scenes at other times (paintAt) and those replays must not overwrite the film's own values.
 
 import { defineFilm, scene } from '../lib/timeline.js';
 import { clamp, lerp, remap, track, sp, spring, swapAlpha, indicator, springFromFeel, settleTime, SPRINGS } from '../lib/motion.js';
@@ -372,7 +375,9 @@ export default defineFilm((ctx) => {
     // No slow camera drift on type: Chrome snaps glyphs under ~256 device px to whole pixels vertically, so a
     // sub-pixel drift steps in 1 px jumps (visible at small render scales). Motion comes from the springs instead.
     h.lines.forEach((line, i) => kinetic(g, line, h.x, h.base[i], t - starts[i], { size: h.size, family: DISPLAY, weight: 400, color: FG, mask: CAPS_MASK, spring: 'default', stagger: 0.05 }));
-    fillRoundRect(g, h.bar.x, h.bar.y, h.bar.w * sp(t + 0.16, 'snappy'), h.bar.h, h.bar.h / 2, ACCENT);
+    const rule = sp(t + 0.16, 'snappy');
+    fillRoundRect(g, h.bar.x, h.bar.y, h.bar.w * rule, h.bar.h, h.bar.h / 2, ACCENT);
+    if (!c.depth) c.probe('hook.rule', rule);
     h.cap.lines.forEach((line, i) => kinetic(g, line, h.cap.x, h.cap.y + i * h.cap.lh, t - B(2) - i * 0.1, { ...ui(h.cap.size), stagger: 0.05 }));
   }
 
@@ -417,6 +422,10 @@ export default defineFilm((ctx) => {
       ring(g, cx, cy, P.d * 0.3, 0.2 + 0.55 * sp(t - T5 - 0.1), { width: 12 * u, color: ACCENT, start: -Math.PI / 2 + (t - T5) * Math.PI * 3.2 });
     });
     if (t > T6) lineProgress(g, [[cx - 0.36 * R, cy + 0.02 * R], [cx - 0.1 * R, cy + 0.28 * R], [cx + 0.38 * R, cy - 0.26 * R]], sp(t - T6 - 0.1, CHECK_SPRING), { width: 0.13 * R, color: BG });
+    if (!c.depth) {
+      c.probe('button.press', press);
+      c.probe('button.iris', iris);
+    }
     kinetic(g, COPY.determinism, P.cx, P.cy + P.d / 2 + 130 * u, t - T6 - 0.1, { ...ui(capSize(L) * 1.1), align: 'center', stagger: 0.05 });
 
     // The cursor drives the change: in from below, click on the beat, out again. Position and press are tracks.
@@ -428,6 +437,7 @@ export default defineFilm((ctx) => {
       const x = track(t, [[0, x0], [T4 + 0.06, tx], [T6 - 0.12, x2]]);
       const y = track(t, [[0, y0], [T4 + 0.06, ty], [T6 - 0.12, y2]]);
       cursor(g, x, y, { scale: 1.5 * u, pressed: press, fill: FG, stroke: BG });
+      if (!c.depth) c.probe('cursor', [x, y]);
     }
   }
 
@@ -447,6 +457,7 @@ export default defineFilm((ctx) => {
       else paintAt(g, tileTime(r.k), c, c.L, rr, G.r * s);
     }
     const z = sp(t - T, 'default'); // camera pull-back: the full frame shrinks into its own still
+    if (!c.depth) c.probe('sheet.pullback', z);
     const hr = lerpRect({ x: 0, y: 0, w: c.L.W, h: c.L.H }, H, z);
     if (c.depth) fillRoundRect(g, hr.x, hr.y, hr.w, hr.h, G.r * z, BG);
     else paintAt(g, tileTime(hero), c, c.L, hr, G.r * z);
@@ -526,6 +537,7 @@ export default defineFilm((ctx) => {
     const rise = sp(t - T13, 'default');
     const cb = counterBox(K);
     if (rise > 0.002) clipRect(g, cb.x, cb.y, cb.w, cb.h, () => withTransform(g, { y: (1 - rise) * K.cnt.size }, () => counter(g, countAt(t - T13 - 0.04), K)));
+    if (!c.depth) c.probe('counter', countAt(t - T13 - 0.04));
     K.cnt.labelLines.forEach((line, i) => kinetic(g, line, K.cnt.x, K.cnt.labelY + i * K.cnt.labelLH, t - T14 - i * 0.1, ui(K.cnt.labelSize)));
     kinetic(g, COPY.curveNote, K.plot.x, K.noteY, t - T14, { ...ui(NOTE_SIZE * K.su), stagger: 0.03 });
   }
@@ -619,6 +631,7 @@ export default defineFilm((ctx) => {
       strokeRoundRect(g, rr.x, rr.y, rr.w, rr.h, rad, LINE, 3 * u);
     });
     const z = sp(t - T20, 'snappy');
+    if (!c.depth) c.probe('lockup.mark', z);
     const m = lerpRect(F.rects[first], M, z);
     const mr = lerp(F.r, M.w * 0.22, z);
     if (z < 0.4) withAlpha(g, 1 - z * 2.5, () => (c.depth ? fillRoundRect(g, m.x, m.y, m.w, m.h, mr, SURFACE) : paintAt(g, TN_END, c, LAYOUTS[first] || L, m, mr)));
@@ -687,5 +700,19 @@ export default defineFilm((ctx) => {
     ].filter((cue) => cue.t < dur);
   };
 
-  return { background: BG, scenes, cues };
+  // Numeric checks over the probes (npm run probe; the critique turns a failing one into a P0). Times come from the grid,
+  // so a measured beats.json moves them with the music.
+  const checks = (gr) => {
+    const b = (n) => gr.beat(n);
+    return [
+      { name: 'accent rule fully drawn before the caption beat', probe: 'hook.rule', at: b(2), near: 1, tol: 0.01 },
+      { name: 'the click lands on beat 5', probe: 'button.press', crosses: 0.5, dir: 'up', at: b(5), tolFrames: 2 },
+      { name: 'cursor moves without kinks (x)', probe: 'cursor.x', kind: 'smooth', to: b(6) + 0.6 },
+      { name: 'cursor moves without kinks (y)', probe: 'cursor.y', kind: 'smooth', to: b(6) + 0.6 },
+      { name: 'pull-back settled when the indicator starts', probe: 'sheet.pullback', at: b(9), min: 0.98 },
+      { name: 'counter holds 720 on its last beat', probe: 'counter', from: b(15), to: b(16), min: 719.5, max: 720.5 },
+    ].filter((c) => (c.at ?? c.from ?? 0) < dur);
+  };
+
+  return { background: BG, scenes, cues, checks };
 });

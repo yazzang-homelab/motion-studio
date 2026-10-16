@@ -10,6 +10,7 @@ import { CRIT_DEFAULTS, round, pixelScale, Analyzer, beatTimes, syncMetrics, loo
 import { trackedBrowser, readTextUse, fontPreflight } from './critique-fonts.mjs';
 import { saveSheet, dropSheet } from './critique-sheets.mjs';
 import { rngFor, shuffle } from '../lib/rng.js';
+import { collectProbes, judgeProbes, checksSummary } from './probe.mjs';
 
 // In-page half of the pixel pass: __studio.pixels per frame, diffs computed next to the canvas so only the 10 fps
 // sample frames cross the CDP pipe. State lives on window so a range can span several evaluate() calls.
@@ -22,17 +23,31 @@ async function pagePixelBatch({ ks, fps, keep, reset }) {
     return s / ((a.length / 4) * 3);
   };
   const keepSet = new Set(keep);
-  const d = {}; const bridge = {}; const frames = {};
+  // Mean relative luminance of the frame and its quadrants, per frame (the flash metric; same maths as regionLuma() in
+  // critique-flash.mjs, inlined because evaluate() ships this function's source alone).
+  const lin = st.lin || (st.lin = Array.from({ length: 256 }, (_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }));
+  const regions = (px, w) => {
+    const h = px.length / 4 / w; const hw = w >> 1; const hh = h >> 1;
+    const sum = [0, 0, 0, 0, 0]; const n = [0, 0, 0, 0, 0];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4; const L = 0.2126 * lin[px[i]] + 0.7152 * lin[px[i + 1]] + 0.0722 * lin[px[i + 2]];
+      const r = (y < hh ? 1 : 3) + (x < hw ? 0 : 1);
+      sum[0] += L; n[0]++; sum[r] += L; n[r]++;
+    }
+    return sum.map((v, i) => (n[i] ? v / n[i] : 0));
+  };
+  const d = {}; const bridge = {}; const frames = {}; const luma = {};
   for (const k of ks) {
     const b64 = await window.__studio.pixels(k / fps, 160);
     const cur = dec(b64);
+    luma[k] = regions(cur, 160);
     if (st.p1) d[k] = diff(st.p1.px, cur);
     if (st.p2) bridge[st.p1.k] = diff(st.p2.px, cur); // |f[a] − f[c]| belongs to the frame b between them (b = k − 1 when stride is 1)
     if (keepSet.has(k)) frames[k] = b64;
     st.p2 = st.p1;
     st.p1 = { k, px: cur };
   }
-  return { d, bridge, frames };
+  return { d, bridge, frames, luma };
 }
 
 /**
@@ -47,7 +62,7 @@ async function pixelSeries(browser, url, fmt, scale, an, { j0, j1, stride }, wor
   const keep = new Set([...sampleJs, j1 - 1]);
   const W = Math.max(1, Math.min(workers, Math.floor(count / 60) || 1));
   const per = Math.ceil(count / W);
-  const merged = { d: {}, bridge: {}, frames: {} };
+  const merged = { d: {}, bridge: {}, frames: {}, luma: {} };
   let done = 0;
   await Promise.all(Array.from({ length: W }, async (_, w) => {
     const a = w * per;
@@ -63,6 +78,7 @@ async function pixelSeries(browser, url, fmt, scale, an, { j0, j1, stride }, wor
         for (const [k, v] of Object.entries(r.d)) merged.d[Number(k) / stride] = v;
         for (const [k, v] of Object.entries(r.bridge)) merged.bridge[Number(k) / stride] = v;
         for (const [k, v] of Object.entries(r.frames)) merged.frames[Number(k) / stride] = v;
+        for (const [k, v] of Object.entries(r.luma)) merged.luma[Number(k) / stride] = v;
         done += part.filter((j) => j >= all[a]).length;
         onProgress?.(done, count);
       }
@@ -73,7 +89,7 @@ async function pixelSeries(browser, url, fmt, scale, an, { j0, j1, stride }, wor
   const bufs = new Map(Object.entries(merged.frames).map(([j, b64]) => [Number(j), Buffer.from(b64, 'base64')]));
   const w = 160;
   const h = bufs.get(j0).length / 4 / w;
-  an.ingest({ d: merged.d, bridge: merged.bridge, samples: sampleJs.map((j) => ({ k: j, buf: bufs.get(j) })), last: bufs.get(j1 - 1), count: j1, w, h });
+  an.ingest({ d: merged.d, bridge: merged.bridge, luma: merged.luma, samples: sampleJs.map((j) => ({ k: j, buf: bufs.get(j) })), last: bufs.get(j1 - 1), count: j1, w, h });
 }
 
 /** DOM films (capture 'page'): screenshots decoded in Node; slower, so 10 fps only. Analyzer frame j = source frame j × step. */
@@ -200,7 +216,8 @@ export async function critiqueLive(root, cfg, fmt, flags, outDir, closers) {
   const N = Math.max(1, Math.round(dur * fps));
   const range = resolveRange(flags, { duration: dur, fps, frames: N });
   const inRange = (t) => t >= range.from - 1e-9 && t < range.to - 1e-9;
-  const info = await first.page.evaluate(() => ({ cues: window.__studio.cues(), shots: window.__studio.shots(), grid: window.__studio.grid }));
+  const info = await first.page.evaluate(() => ({ cues: window.__studio.cues(), shots: window.__studio.shots(), grid: window.__studio.grid,
+    checks: typeof window.__studio.checks === 'function' ? window.__studio.checks().length : 0 }));
   const shots = (info.shots || []).filter((s) => Number.isFinite(s.from) && Number.isFinite(s.to));
   const cues = (info.cues || []).filter((c) => Number.isFinite(c.t));
   const beats = beatTimes(info.grid, dur, cfg);
@@ -247,8 +264,16 @@ export async function critiqueLive(root, cfg, fmt, flags, outDir, closers) {
     sheet('shots', shotsR.length ? shotsR.map((s) => (Math.max(s.from, range.from) + Math.min(s.to, range.to)) / 2) : [mid], { width: 270, cols: 6, title: (n) => `${res.film.title} · ${fmt} · shot midpoints (${thinned(n, shotsR.length || 1)})${rangeNote}` }),
     sheet('phone', phoneTimes.length ? phoneTimes : [mid], { width: 360, cols: portrait ? 5 : 4, title: (n) => `${fmt} at 360 px wide · one still per second (${thinned(n, phoneTimes.length || 1)})${rangeNote}` }),
   ]);
-  const [, det] = await Promise.all([pixelTask, detTask, sheetTask]);
+  // Numeric checks (lib/checks.js) only when the film defines some: every frame of the range painted once on a small page.
+  const checkTask = info.checks > 0 ? collectProbes(browser, server.url, fmt, { from: range.from, to: range.to }).then((col) => {
+    if (col.unsupported) return null;
+    const s = checksSummary(col, judgeProbes(col, { full: range.full, loop: !!(meta.loop ?? cfg.loop) }));
+    lap(`checks: ${s.passed} of ${s.total} pass${s.failed ? `, ${s.failed} fail` : ''}${s.seam ? `; loop seam ${s.seam.filter((x) => !x.pass).length} of ${s.seam.length} probe(s) jump` : ''}`);
+    return s;
+  }) : Promise.resolve(null);
+  const [, det, , checks] = await Promise.all([pixelTask, detTask, sheetTask, checkTask]);
   res.determinism = det;
+  if (checks) res.checks = checks;
   // Every frame of the range is painted now (the pixel pass on its own pages, determinism on `first`): ask each page what it drew.
   sink.extra = [await readTextUse(first.page)];
   res.fonts = await fontPreflight(first.page, sink);

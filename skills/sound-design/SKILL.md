@@ -150,6 +150,12 @@ timed so that this peak lands on the arrival. Samples need a commercial-use lice
 license you hold for a published film. Attribution-only licenses (CC BY) need the credit in the post;
 NonCommercial and "personal use" packs are out. Record the source and license in `docs/production.json` notes.
 
+Each cue lands its anchor (the transient's peak, not its first sample: attack shapes and limiters move the peak) on its
+time plus `audio.sfxLagFrames` frames (new projects: 1; `--lag-frames N` for one run). A hit one frame after the picture
+reads as in sync, because light reaches the eye before the brain fuses the sound; at 48 kHz and 60 fps that is exactly
+800 samples, so a visual event on frame F sounds at sample (F + 1) × 800. Keep the cue `t` on the picture's frame: the
+critique's sync check and the preview strip read the cue, not the lagged sound.
+
 ## 5. Voice (optional, ElevenLabs)
 
 1. The key goes in `.env` as `ELEVENLABS_API_KEY=...` (never in a prompt, a file you commit, or a screenshot). Refer

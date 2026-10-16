@@ -1,6 +1,6 @@
 ---
 name: springs
-description: "Make motion feel physical with closed-form springs from lib/motion.js: presets, springFromFeel, track() for multi-target values, loopTrack loops, indicators, text swaps. Use for 'feels linear', 'add bounce', 'easing to springs'."
+description: "Make motion feel physical with closed-form springs from lib/motion.js: presets, ζ/Hz params, track(), loopTrack loops, named easing curves, anticipation, squash. Use for 'feels linear', 'add bounce', 'easing to springs'."
 argument-hint: "[file, scene or element]"
 ---
 
@@ -21,8 +21,9 @@ Import from the film project's `lib/motion.js` (paths relative to the file: `../
 | `sp(t, preset = 'default')` | 0 to 1 | the everyday call; `t` is time since release (`lt - 0.2`), 0 before release |
 | `spring(t, k, d, m = 1)` / `springVel(...)` / `springPV(...)` | x / v / `[x, v]` | raw k/d form; exact under-, critically and overdamped |
 | `SPRINGS` | `{ snappy, default, heavy, playful }` | `{k, d}` pairs, see the table below |
-| `resolveSpring(p)` | `{k, d}` | accepts a preset name, `{k, d}` or `{duration, bounce}` everywhere a spring is expected |
+| `resolveSpring(p)` | `{k, d}` | accepts a preset name, `{k, d}`, `{duration, bounce}` or `{zeta, freq}` everywhere a spring is expected |
 | `springFromFeel({ duration, bounce })` / `feelFromSpring({k, d})` | `{k, d}` / `{duration, bounce}` | designer-friendly parameters (Apple convention) |
+| `springFromRatio({ zeta = 0.7, freq = 2 })` / `ratioFromSpring(spec)` | `{k, d}` / `{zeta, freq}` | damping ratio ζ and natural frequency in Hz, the way briefs state springs ("ζ 0.6") |
 | `track(t, keys, spring = 'default')` / `trackVel(...)` | value / velocity | `keys = [[time, value], ...]` sorted; one spring per change, summed; an optional third element overrides the spring for that change (`[2.4, 420, 'heavy']`) |
 | `loopTrack(t, keys, dur, spring = 'default', cycles = null)` | value | seamless loops. Key times are within one cycle, `0..dur`, and are not wrapped (outside throws). Last value must equal the first. A key exactly at `dur` is the seam change |
 | `indicator(t, stops, { width = 120, lead = 'snappy', trail = {k: 140, d: 22} })` | `{ left, right }` | tab indicator that stretches: edges on different springs |
@@ -31,6 +32,12 @@ Import from the film project's `lib/motion.js` (paths relative to the file: `../
 | `stepTime(t, rate = 12)` | stepped `t` | "on twos" for drawings only, never camera or global fades. Pass `c.frameLt` (or `c.frameT`), the output frame's time, for a hard cut between steps; `c.t` / `lt` are subframe times and blend the two steps on the frames where a step changes |
 | `loopT(t, dur)` | `t` wrapped into `[0, dur)` | time wrap; not enough on its own for springs (use `loopTrack`) |
 | `settleTime(spring, eps = 0.01)` / `overshoot(spring)` | seconds / fraction | plan holds and cut points |
+| `tween(t, t0, dur, from = 0, to = 1, ease = 'outQuint')` | value | a timed move on a named curve; holds `from` before `t0` and `to` after |
+| `EASES`, `resolveEase(e)`, `cubicBezier(x1, y1, x2, y2)` | p => y | `outExpo`, `outQuint`, `outCubic`, `outBack`, `inOutQuart`, `inOutCubic`, `inExpo`, `inQuint`, `linear`; exact CSS curves |
+| `windup(t, at, { lead = 0.18, depth = 0.1, spring = 'playful' })` | value | anticipation: dips the other way for `lead` s, then springs 0 → 1 from `at` |
+| `squash(s, { preserve = 'area' })` | `{ along, across }` | squash and stretch that keeps the mass (`'area'` 1/s, `'volume'` 1/√s) |
+| `loopWave(t, dur, cycles = 1, phase = 0)` | −1 to 1 | a sine with whole cycles per loop (refuses a fraction: the seam would jump) |
+| `holdTime(words)` / `framesPerBeat(fps, bpm)` | seconds / frames | 0.3 s per word + 0.5 s; fps × 60 / bpm |
 | `easeOutCubic`, `easeInOutCubic` | 0 to 1 | only for non-physical fades (opacity); never for things that move |
 
 ## 2. Presets
@@ -43,7 +50,10 @@ Import from the film project's `lib/motion.js` (paths relative to the file: `../
 | `playful` | 220 / 14 | 0.472 | 18.6% | 0.59 s | mascots, stickers |
 
 House rule: tiny overshoot on UI (`snappy`), none on type (`default` or `heavy` for scale and position of hero text),
-`playful` only where the overshoot is the joke. Full numbers, feel conversions and formulas:
+`playful` only where the overshoot is the joke. Springs for things with mass; a named curve (`tween`, `outExpo` in,
+`inExpo` out, `inOutQuart` for the camera) where the landing frame is part of the choreography. Entrances ease out,
+exits ease in and run 40 to 50% shorter. Adjective-to-number tables (durations, ζ ranges, hierarchy, animation
+principles, beats and frames, loops, accessibility): [references/numbers.md](references/numbers.md). Full numbers, feel conversions and formulas:
 [references/presets.md](references/presets.md).
 
 ## 3. Recipes

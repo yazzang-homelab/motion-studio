@@ -12,6 +12,7 @@ explains what it does, so you can read its report and fix a mix that misses the 
 | `truePeak` | -1 | ceiling in dBTP, measured with 4x oversampling (`ebur128=peak=true`); -20 to 0 works. loudnorm itself cannot go below -9, so a lower ceiling skips the linear pass and the oversampled limiter enforces it |
 | `musicGainDb` / `sfxGainDb` / `voiceGainDb` | -2 / 0 / 0 | stem levels before the sum |
 | `duck` | true | music ducks under the voice (sidechain compression) when a voice stem exists |
+| `sfxLagFrames` | 0 (new projects: 1) | `sfx.mjs` lands every cue this many frames after its time (`--lag-frames` overrides, 0 to 6). One frame late reads as in sync: light reaches the eye before the brain fuses the sound. At 48 kHz and 60 fps one frame is exactly 800 samples |
 | `music` / `sfx` / `voice` | `audio/music.wav` / `audio/sfx.wav` / null | stem paths; null or `"none"` skips the stem |
 | `master` | `out/score.wav` | the normalized master |
 

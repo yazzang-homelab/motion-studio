@@ -128,6 +128,8 @@ Metric semantics, so a flag is triaged correctly:
 | pops, `flicker` | one frame differs from both neighbours by more than `critique.popRatio` (3) times how far they differ from each other | P1 (an intended flash next to a cue is dismissed in writing) |
 | pops, `jump` | a difference spike more than `popRatio` times the mean of the four neighbouring differences: something teleported, popped in or flipped | P2 from the tool; you raise it to P1 when it hurts the shot. Info only with `critique.stepped: true`; none inside a `critique.popIgnore` span |
 | frame 0 | nearly empty: under 0.5 % of the pixels differ from the smooth background (a plain fill, a gradient or a vignette all count as background) | P0 |
+| flash | more than 3 general flashes in any 1 s (WCAG 2.3.1): luminance swings of 0.1 or more between turning points, the darker state under 0.8, measured on every analysed frame for the whole frame and for each quadrant (a strobe in one corner is not averaged away). A slow fade is one transition, not many. Red flashes are not modelled | P0 `flash` (a photosensitivity hazard, never dismissed as style) |
+| checks (films that declare `checks`) | a numeric assertion in the film fails: a probe off its value at a frame, out of range over a span, an event (a foot contact, a light on) on the wrong frame, a velocity kink, a loop seam that jumps in value or velocity | P0 per failing check |
 | corners, borders | small content in a corner box (`critique.cornerPct`, 8 %) in 30 % or more of the sampled frames; thin uniform edge lines with an abrupt inner step on 3 or more sides in 25 % or more (a vignette, a gradient or a card on a coloured backdrop is not a border) | P1 from the tool, P0 once confirmed by eye (banned looks) |
 | sync | under 80 % of hit cues (four or more cues) within 25 ms of a beat, or shot changes off the downbeats; risers, whooshes and swooshes lead the beat on purpose and are not counted | P2 |
 | audio (`--video`) | no audio stream, loudness outside the target, true peak above the target, audio length off the video by more than a frame | P0 for no audio stream or true peak above 0 dBTP, else P1 |
@@ -144,6 +146,12 @@ Open every image with the Read tool. Do not score from `metrics.md` alone and do
 Order: `metrics.md`, `contact.png`, `phone.png`, `shots.png`, `strip.png`, `loop.png` (each with every page it has:
 `contact-2.png`, `contact-3.png` ...; the `metrics.md` evidence list names them, or list the folder), then the `video/metrics.md`
 audio row. Compare against `docs/shotlist.md` (what was promised) and the previous round (what should now be fixed).
+
+For a move that looks wrong, run `npm run probe -- --format <fmt>`: `motion.png` plots every probed value and its velocity
+against the beats and shot boundaries (a straight line is constant speed, a sharp corner a velocity kink, a smooth S the
+easing you wanted), and `--onion <a>:<b>` writes `onion.png`, the frames of that span stacked with rising opacity (even
+spacing = constant speed, bunching at the ends = easing, a kink in the path = trouble). Name frames, not impressions:
+"the lid reaches 100° at frame 96, the beat is frame 90".
 
 Two findings need a fix rather than a judgment call:
 

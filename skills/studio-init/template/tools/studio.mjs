@@ -21,7 +21,7 @@ const deepFreeze = (o) => { for (const v of Object.values(o)) if (v && typeof v 
 
 export const DEFAULTS = deepFreeze({
   title: 'Untitled Film', duration: 12, fps: 60, subframes: 4, shutter: 0.5, bpm: 120, beatsPerBar: 4, loop: false,
-  formats: ['9x16', '1x1', '16x9'], primaryFormat: '9x16', capture: 'auto', browser: 'auto',
+  formats: ['9x16', '1x1', '16x9'], primaryFormat: '9x16', capture: 'auto', browser: 'auto', gl: 'software',
   encode: { crf: 16, preset: 'slow', tune: 'animation', previewPreset: 'veryfast' },
   poster: null,
   safe: {
@@ -34,7 +34,7 @@ export const DEFAULTS = deepFreeze({
     fonts: { display: 'Instrument Serif', ui: 'Inter' } },
   fonts: [],
   audio: { music: 'audio/music.wav', sfx: 'audio/sfx.wav', voice: null, master: 'out/score.wav', lufs: -14, lufsTolerance: 0.5,
-    truePeak: -1, musicGainDb: -2, sfxGainDb: 0, voiceGainDb: 0, duck: true },
+    truePeak: -1, musicGainDb: -2, sfxGainDb: 0, voiceGainDb: 0, duck: true, sfxLagFrames: 0 },
   gate: { enabled: true, minScore: 8, minRounds: 3, axes: ['hook', 'readability', 'motion', 'variety', 'composition', 'brand', 'sound'],
     naAllowed: ['brand'], requireFormats: false },
   critique: { deadSpanSec: 2.0, staticEps: 0.35, cornerPct: 0.08, popRatio: 3.0, stepped: false, popIgnore: [] },
@@ -168,6 +168,7 @@ export function validateConfig(cfg) {
     if (!cfg.formats.includes(cfg.primaryFormat)) errs.push(`primaryFormat ${show(cfg.primaryFormat)} must be one of formats [${cfg.formats.join(', ')}]`);
   }
   oneOf('capture', cfg.capture, ['auto', 'canvas', 'page']);
+  oneOf('gl', cfg.gl, ['software', 'gpu']);
   if (typeof cfg.browser !== 'string' || !(['auto', 'chrome', 'msedge', 'chromium'].includes(cfg.browser) || path.isAbsolute(cfg.browser)))
     errs.push(`browser must be auto, chrome, msedge, chromium or an absolute path to a Chromium-based browser (got ${show(cfg.browser)})`);
   if (obj('encode', cfg.encode)) {
@@ -203,6 +204,7 @@ export function validateConfig(cfg) {
     num('audio.truePeak', cfg.audio.truePeak, { min: -20, max: 0 });
     for (const k of ['musicGainDb', 'sfxGainDb', 'voiceGainDb']) num(`audio.${k}`, cfg.audio[k], { min: -60, max: 24 });
     bool('audio.duck', cfg.audio.duck);
+    num('audio.sfxLagFrames', cfg.audio.sfxLagFrames, { min: 0, max: 6, int: true });
     // Optional keys read by score.mjs and voice.mjs; absent or null = unset (the tools' own defaults).
     const set = (k) => cfg.audio[k] !== undefined && cfg.audio[k] !== null;
     if (set('style')) oneOf('audio.style', cfg.audio.style, SCORE_STYLES);
@@ -612,7 +614,7 @@ export function ffmpegSink(root, args, { onStderr } = {}) {
 // browser launchBrowser may start, and the Windows failed-logon guard around an installed Chrome/Edge.
 
 export { BROWSER_ARGS, OPTIONAL_RESOURCES, boundClose, captureFrame, closeTimeoutMs, dataUrlToBuffer, even, importPlaywright,
-  isBenignConsoleError, isChromeUnsafePort, launchBrowser, mimeType, openFilm, settleWithin, startServer, waitReady,
+  isBenignConsoleError, isChromeUnsafePort, launchBrowser, glArgs, GL_SOFTWARE_ARGS, mimeType, openFilm, settleWithin, startServer, waitReady,
   LAUNCH_WINDOW_MS, browserAttempts, classifyBrowser, guardSystemLaunch, launchFailureMessage, launchGuard, launchLogPath,
   lockoutRefusal, readLaunchLog, recordLaunch, systemBrowserMax, systemBrowserWarning } from './studio-web.mjs';
 

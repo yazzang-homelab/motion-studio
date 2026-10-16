@@ -65,7 +65,7 @@ export const SPRINGS = Object.freeze({
   playful: Object.freeze({ k: 220, d: 14 }), // mascots, stickers (ζ 0.47, 18.6% overshoot)
 });
 
-// p: preset name | {k, d?, m?} | {duration, bounce}. Missing d on {k} means critically damped.
+// p: preset name | {k, d?, m?} | {duration, bounce} | {zeta, freq}. Missing d on {k} means critically damped.
 export function resolveSpring(p = 'default') {
   if (p == null) return SPRINGS.default;
   if (typeof p === 'string') {
@@ -80,8 +80,9 @@ export function resolveSpring(p = 'default') {
       return m === 1 ? { k: p.k, d } : { k: p.k, d, m };
     }
     if ('duration' in p || 'bounce' in p) return springFromFeel(p);
+    if ('zeta' in p || 'freq' in p) return springFromRatio(p);
   }
-  throw new Error(`invalid spring ${JSON.stringify(p)} — use a preset name, {k,d} or {duration,bounce}`);
+  throw new Error(`invalid spring ${JSON.stringify(p)} — use a preset name, {k,d}, {duration,bounce} or {zeta,freq}`);
 }
 
 export function sp(t, preset = 'default') {
@@ -104,6 +105,21 @@ export function feelFromSpring(spec) {
   const w0 = Math.sqrt(k / m);
   const z = d / (2 * Math.sqrt(k * m));
   return { duration: (2 * Math.PI) / w0, bounce: z <= 1 ? 1 - z : 1 / z - 1 };
+}
+
+// Engineering parameters: damping ratio ζ = d / (2√(km)) and undamped natural frequency f in Hz (ω0 = 2πf), m = 1.
+// k = ω0², d = 2ζω0. ζ ≥ 1 no bounce, 0.7–0.85 restrained, 0.4–0.6 lively, < 0.3 cartoon. A brief that says "damping
+// 0.6" means ζ; without a frequency, 2 Hz (a 0.5 s period) is the neutral choice.
+export function springFromRatio({ zeta = 0.7, freq = 2 } = {}) {
+  if (!(freq > 0) || !Number.isFinite(freq)) throw new Error(`springFromRatio: freq must be a finite number > 0 Hz (got ${freq})`);
+  if (!(zeta >= 0) || !Number.isFinite(zeta)) throw new Error(`springFromRatio: zeta must be a finite number ≥ 0 (got ${zeta})`);
+  const w0 = 2 * Math.PI * freq;
+  return { k: w0 * w0, d: 2 * zeta * w0 };
+}
+
+export function ratioFromSpring(spec) {
+  const { k, d, m = 1 } = resolveSpring(spec);
+  return { zeta: d / (2 * Math.sqrt(k * m)), freq: Math.sqrt(k / m) / (2 * Math.PI) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -264,3 +280,121 @@ export function easeInOutCubic(p) {
   const x = clamp(p);
   return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Timing curves. Springs are for things with mass (they settle when physics says so); a named curve is for moves whose
+// landing frame is part of the choreography: kinetic type and logo entrances, camera dollies, exits, beat-locked moves.
+// Entrances ease out, exits ease in (and run 40–50% shorter than the entrance), moves across the frame ease in-out.
+
+// CSS cubic-bezier(x1, y1, x2, y2) as a function of progress p in [0, 1]: x(s) = p is solved exactly (Newton, with a
+// bisection fallback where the slope is flat), so the curve matches a browser's to ~1e-7. p ≤ 0 → 0 and p ≥ 1 → 1;
+// in between y may leave [0, 1] (overshooting curves such as outBack).
+export function cubicBezier(x1, y1, x2, y2) {
+  for (const v of [x1, y1, x2, y2]) if (!Number.isFinite(v)) throw new Error(`cubicBezier: control points must be finite numbers (got ${[x1, y1, x2, y2].join(', ')})`);
+  if (x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1) throw new Error(`cubicBezier: x1 and x2 must be within 0..1, or time would run backwards (got ${x1}, ${x2})`);
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const X = (s) => ((ax * s + bx) * s + cx) * s;
+  const dX = (s) => (3 * ax * s + 2 * bx) * s + cx;
+  const Y = (s) => ((ay * s + by) * s + cy) * s;
+  return function bezier(p) {
+    if (!(p > 0)) return 0; // also NaN
+    if (p >= 1) return 1;
+    let s = p;
+    for (let i = 0; i < 8; i++) {
+      const err = X(s) - p;
+      if (Math.abs(err) < 1e-9) return Y(s);
+      const slope = dX(s);
+      if (Math.abs(slope) < 1e-7) break;
+      s -= err / slope;
+      if (s < 0 || s > 1) break;
+    }
+    let lo = 0;
+    let hi = 1;
+    s = p;
+    for (let i = 0; i < 64 && hi - lo > 1e-12; i++) {
+      s = (lo + hi) / 2;
+      if (X(s) < p) lo = s;
+      else hi = s;
+    }
+    return Y((lo + hi) / 2);
+  };
+}
+
+// Named curves (easings.net control points). Use the name in briefs and code so a reviewer can read the intent.
+export const EASES = Object.freeze({
+  linear: (p) => clamp(p),
+  outCubic: cubicBezier(0.33, 1, 0.68, 1),
+  outQuint: cubicBezier(0.22, 1, 0.36, 1), // premium entrances
+  outExpo: cubicBezier(0.16, 1, 0.3, 1), // text and logo entrances
+  outBack: cubicBezier(0.34, 1.56, 0.64, 1), // a pop with ~10% overshoot (UI badges; never body text)
+  inOutCubic: cubicBezier(0.65, 0, 0.35, 1),
+  inOutQuart: cubicBezier(0.76, 0, 0.24, 1), // camera moves, repositioning
+  inQuint: cubicBezier(0.64, 0, 0.78, 0),
+  inExpo: cubicBezier(0.7, 0, 0.84, 0), // fast exits
+});
+
+const easeCache = new Map();
+// e: a name from EASES | a function p => y | [x1, y1, x2, y2] (cached per control-point set).
+export function resolveEase(e = 'outQuint') {
+  if (typeof e === 'function') return e;
+  if (typeof e === 'string') {
+    const f = EASES[e];
+    if (!f) throw new Error(`unknown ease "${e}" — use ${Object.keys(EASES).join(', ')}, a function or [x1, y1, x2, y2]`);
+    return f;
+  }
+  if (Array.isArray(e) && e.length === 4) {
+    const key = e.join(',');
+    let f = easeCache.get(key);
+    if (!f) easeCache.set(key, (f = cubicBezier(...e)));
+    return f;
+  }
+  throw new Error(`invalid ease ${JSON.stringify(e)} — use a name (${Object.keys(EASES).join(', ')}), a function or [x1, y1, x2, y2]`);
+}
+
+// from → to over [t0, t0 + dur] on a timing curve; holds `from` before t0 and `to` after. dur ≤ 0 is a cut at t0.
+export function tween(t, t0, dur, from = 0, to = 1, ease = 'outQuint') {
+  const p = dur > 0 ? (t - t0) / dur : t >= t0 ? 1 : 0;
+  return lerp(from, to, resolveEase(ease)(clamp(p)));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Animation principles as numbers (references in skills/springs/references/numbers.md).
+
+// Squash and stretch: scale along the motion axis by `s` (> 1 stretch, < 1 squash) and compensate across it so the
+// form keeps its mass: 'area' (2D shapes, 1/s), 'volume' (3D bodies seen from one side, 1/√s) or 'none'.
+// Returns { along, across }; a jump that takes off at 1.28 along gets ~0.78 (area) across.
+export function squash(s, { preserve = 'area' } = {}) {
+  if (!(s > 0) || !Number.isFinite(s)) throw new Error(`squash: s must be a finite number > 0 (got ${s})`);
+  if (preserve === 'area') return { along: s, across: 1 / s };
+  if (preserve === 'volume') return { along: s, across: 1 / Math.sqrt(s) };
+  if (preserve === 'none') return { along: s, across: 1 };
+  throw new Error(`squash: preserve must be 'area', 'volume' or 'none' (got ${JSON.stringify(preserve)})`);
+}
+
+// Anticipation: a value that dips the opposite way for `lead` seconds before `at`, then springs to 1 (0 → −depth → 1).
+// Continuous in value and velocity: both legs are springs summed by track(). The guide's mascot crouches 11 frames
+// (0.18 s at 60 fps) before a jump; a lid presses ~6% shut before it opens.
+export function windup(t, at, { lead = 0.18, depth = 0.1, spring = 'playful' } = {}) {
+  if (!(lead > 0)) return track(t, [[0, 0], [at, 1, spring]]);
+  return track(t, [[0, 0], [at - lead, -depth, { duration: lead, bounce: 0 }], [at, 1, spring]]);
+}
+
+// A sine with a whole number of cycles per loop of `dur` seconds: value and velocity match at the seam by construction.
+// phase is in cycles (0.25 = a quarter turn). A non-integer cycle count is refused: it is the classic loop-seam jump.
+export function loopWave(t, dur, cycles = 1, phase = 0) {
+  if (!(dur > 0)) throw new Error(`loopWave: dur must be > 0 (got ${dur})`);
+  if (!Number.isInteger(cycles)) throw new Error(`loopWave: cycles must be a whole number so the loop closes (got ${cycles})`);
+  return Math.sin(2 * Math.PI * ((cycles * loopT(t, dur)) / dur + phase));
+}
+
+// Minimum on-screen hold for a line of text: 0.3 s per word + 0.5 s (a two-word title holds ≥ 1.1 s).
+export const holdTime = (words, { perWord = 0.3, base = 0.5 } = {}) => base + perWord * Math.max(0, Number(words) || 0);
+
+// Frames per beat (60 fps at 120 BPM = 30). Not always whole (30 fps at 128 BPM = 14.0625): never step beats by a
+// rounded count, round each beat's own absolute time (Math.round(grid.beat(n) * fps)) so the error cannot accumulate.
+export const framesPerBeat = (fps, bpm) => (fps * 60) / bpm;

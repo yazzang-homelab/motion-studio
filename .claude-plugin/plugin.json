@@ -1,8 +1,8 @@
 {
   "name": "motion-studio",
   "displayName": "Motion Studio",
-  "version": "0.1.0",
-  "description": "Code-rendered motion design studio for Claude Code: a deterministic seek(t) canvas renderer, spring physics, beat-synced synthesized sound, a self-critique loop and multi-format delivery.",
+  "version": "0.2.0",
+  "description": "Code-rendered motion design studio for Claude Code: a deterministic seek(t) canvas and WebGL renderer, spring physics, numeric motion checks, beat-synced synthesized sound, a self-critique loop and multi-format delivery.",
   "author": {
     "name": "yazzang"
   },
@@ -19,6 +19,8 @@
     "sound-design",
     "playwright",
     "ffmpeg",
-    "showreel"
+    "showreel",
+    "webgl",
+    "threejs"
   ]
 }

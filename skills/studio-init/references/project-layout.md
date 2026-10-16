@@ -31,7 +31,7 @@ subagent to its column where hooks are allowed to run.
 
 | Path | Purpose | Written by |
 |---|---|---|
-| `studio.json` | duration, fps, subframes, bpm, formats, primary format, brand, audio targets, gate | main (user decisions) |
+| `studio.json` | duration, fps, subframes, bpm, formats, primary format, brand, audio targets (`audio.sfxLagFrames`), gate, `gl` (`software` = reproducible WebGL on SwiftShader, `gpu`) | main (user decisions) |
 | `film/film.js` | scenes, shots, cues; a pure function of time | main |
 | `film/scenes/chNN_*.js` | one chapter each | `motion-studio:chapter-animator` (one owner per file) |
 | `lib/*.js` | engine library; edit only to fix an engine bug | main or `motion-studio:render-engineer` |

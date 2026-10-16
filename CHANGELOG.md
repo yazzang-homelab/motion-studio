@@ -6,6 +6,63 @@ The plugin version lives in `.claude-plugin/plugin.json`; users receive an updat
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-17
+
+Motion Lab revision: the practices of the "Opus 5.5 Motion Lab" write-up (three films: a Three.js product ad, a voxel
+mascot verified by 71 numeric checks, an SDF liquid-chrome title) built into the harness. Adjectives become numbers in
+the spec, 3D and shader shots join the same `seek(t)` timeline, motion is proved by numeric checks, and the critique
+learns photosensitive flashes. Every addition keeps the render contract: the demo film's pixels are unchanged.
+
+### Added
+
+- 3D and shaders (`/motion-studio:gl-scenes`, new skill). `lib/gl.js`: `glLayer({ frag, uniforms, textures, scale })`, a
+  GLSL ES 3.00 layer that is an ordinary scene draw (offscreen WebGL2, composited with `drawImage`, so layers, cues, motion
+  blur and formats work unchanged); built-in uniforms `uTime uLt uP uFrame uRes uDur`; uniforms converted by their declared
+  GLSL type; compile errors with numbered source lines; `sdfText()` (signed distance texture of any font by an exact
+  Felzenszwalb–Huttenlocher transform) for extruded and melting type; `GLSL` chunks (`sdf` with `smin`, `raymarch`,
+  `lighting` with Schlick Fresnel and a softbox studio environment, `color`, `noise` with `loopNoise`, `text`).
+  `lib/three-layer.js`: `threeLayer(THREE, { setup, update, fov = 30, ... })` and `studioEnv()` (reflection-only
+  softboxes). Examples: `assets/liquid-chrome.film.js` (6 s loop, blob → droplets → extruded word → blob) and
+  `assets/product-hero.three.js` (lid springs open 100° at ζ 0.6). `index.html` maps `three` and `three/addons/`;
+  `npm run three:add` pins `three@0.160.0`.
+- `studio.json` `gl`: `software` (default) launches Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader`, so
+  WebGL frames hash the same on every machine (Chrome 137+ no longer falls back to SwiftShader on its own); `gpu` opts out.
+  `doctor` names the WebGL renderer.
+- Numeric motion QA. `c.probe(name, value)` records values per frame (no-op unless probing); the film factory may return
+  `checks` (point, range, event, smooth; `lib/checks.js`, pure). `tools/probe.mjs` (`npm run probe`) writes `probes.json`,
+  the speed graph `motion.png` (value and velocity per probe against beats and shots, failing frames marked) and, with
+  `--onion A:B[:STEP]`, the onion skin `onion.png`; loop films get a value-and-velocity seam check per probe. Exit 1 on a
+  failing check. The live critique runs the checks when a film declares them (metrics `checks`, one P0 per failure).
+  The template film carries 8 probe channels and 6 checks (data only).
+- Photosensitive flashes in the critique (`tools/critique-flash.mjs`): more than 3 general flashes in any second (WCAG
+  2.3.1: luminance swings of 0.1 or more, the darker state under 0.8, between turning points) on the whole frame or any
+  quadrant is a P0 `flash`; metrics `flash`, a `flash` row in `metrics.md`.
+- `lib/motion.js`: named timing curves `EASES` (`outExpo`, `outQuint`, `outCubic`, `outBack`, `inOutQuart`, `inOutCubic`,
+  `inExpo`, `inQuint`, `linear`), an exact `cubicBezier()`, `resolveEase()`, `tween(t, t0, dur, from, to, ease)`;
+  springs by damping ratio and frequency (`{ zeta, freq }` anywhere a spring is accepted, `springFromRatio`,
+  `ratioFromSpring`); `windup()` (anticipation), `squash()` (area- or volume-preserving), `loopWave()` (whole cycles
+  only), `holdTime(words)`, `framesPerBeat(fps, bpm)`. `lib/rng.js`: `loopNoise(t, dur)` (noise sampled on a circle).
+- `tools/gif.mjs` (`npm run gif`): GIF from `final.mp4` with a two-pass palette; the frame rate is snapped to whole
+  centiseconds (50, 33.3, 25, 20 ...), the GIF is parsed back and checked for frame count, identical delays, exact
+  length and loop flag (`--max-bytes` for platform limits).
+- `audio.sfxLagFrames` (new projects: 1) and `sfx.mjs --lag-frames`: every SFX lands that many frames after its cue.
+- Render contract aliases: `window.renderAt(t)` (= `seek`), `__studio.renderAt`, `__studio.probes(t)`,
+  `__studio.probeRun()`, `__studio.checks()`, and `index.html?render&t=2.5` paints that time.
+- Docs: `skills/springs/references/numbers.md` (adjectives to numbers: curves, ζ ranges, durations, hierarchy, animation
+  principles, beats and frames, camera, loops, accessibility, banned list) and `skills/motion-reel/assets/motion-spec.md`
+  (the GOAL / OUTPUT / TIME / LOOK / MODEL / MOTION / SHOTS / CAMERA / SOUND / BANNED / QA spec that heads the shot list).
+- Evals `motion-spec-numbers` and `trigger-gl-scenes`.
+
+### Changed
+
+- `motion-reel`: the shot list opens with the numeric motion spec; one hero move per shot (secondary 50–70%, 100–200 ms
+  later, background under 5%); at most 3 flashes per second; probes and checks for the spec's QA line; GIF delivery.
+- `springs`, `critique-loop` (flash and checks metrics, `motion.png` / `onion.png`), the rubric, `sound-design`, the
+  template `CLAUDE.md` and `docs/API.md`; agents `motion-director` (numeric spec), `motion-critic`, `chapter-animator`
+  (curves, ζ springs, GL layers, chapter-prefixed probes), `render-engineer` (software GL cost and determinism).
+- `critique-metrics.mjs` re-exports the flash metric from `critique-flash.mjs` (every critique file stays under 600 lines).
+
+
 ### Changed
 
 - License: MIT is replaced by a dual license. The [PolyForm Noncommercial License 1.0.0](LICENSE) covers personal,

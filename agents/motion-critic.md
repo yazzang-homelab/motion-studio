@@ -87,8 +87,8 @@ foreground for more than about 2 minutes.
    evidence itself shows, say in QUESTIONS that the evidence is stale and which files changed, and ask for a fresh pass. A zoom
    file name carries the round (`zoom-r<n>-...`) so a later round never reads it as its own.
 3. Read `out/review/<fmt>/metrics.md` first, then `out/review/<fmt>/video/metrics.md` when it exists (its audio row is
-   the only sound evidence; the live one says `n/a`). Every flag (determinism, fonts, deadSpans, pops, frame0, corners,
-   borders, sync, loop, audio, silence) becomes a problem or a one-line dismissal with a reason ("pop at 00:03.02 is the
+   the only sound evidence; the live one says `n/a`). Every flag (determinism, fonts, deadSpans, pops, frame0, flash,
+   checks, corners, borders, sync, loop, audio, silence) becomes a problem or a one-line dismissal with a reason ("pop at 00:03.02 is the
    planned hard cut"). Two findings are fixes, not opinions: a `font-fallback` (P0: a character has no glyph in its font, or
    its family is not registered; the finding names the family, weight and characters) is logged as a P0 with the fix the tool
    prints (register a font that covers them, `node tools/fonts.mjs add-file`, check with `coverage`); dismiss it only with a
