@@ -141,7 +141,7 @@ back to `pulse`).
   `validateConfig` accepts exactly the insets that `layout()` accepts.
 - `audio`: stem paths are strings or `null`; `lufs` -70 to -5, the range loudnorm accepts (`audio.lufs must be between -70
   and -5 (got -3)`); `lufsTolerance` > 0 and at most 10; `truePeak` -20 to 0; the three
-  `*GainDb` -60 to 24; `duck` boolean. When present: `style` (pulse, piano, minimal, cinematic), `key` (a note name A to G
+  `*GainDb` -60 to 24; `duck` boolean; `sfxLagFrames` a whole number 0 to 6 (default 0; new projects write 1). When present: `style` (pulse, piano, minimal, cinematic), `key` (a note name A to G
   with an optional # or b, and a trailing m or M for the mode), `mode` (minor, major), `seed` (integer), `voiceId` (string).
 - `gate.naAllowed` must be a list of axis names; valid names are the seven default axes plus those in `gate.axes`
   (`gate.mjs` itself falls back to `["brand"]` when `naAllowed` is not a list of strings).
@@ -152,6 +152,10 @@ back to `pulse`).
   `loadConfig`, `mix.mjs` included (`invalid <file>:` then `- audio.lufs must be between -70 and -5 (got -3)`, no usage text, nothing
   written); a flag such as `--lufs` on a bad `studio.json` cannot rescue it. Only a bad command-line flag is a usage error and
   exits 2 (`mix --lufs -3`: `--lufs must be ...`). With `--json` both print the `{"ok":false,"error":"..."}` line (section 9).
+
+- `gl`: `software` (default) or `gpu`. `software` adds `--use-angle=swiftshader --enable-unsafe-swiftshader` to every
+  browser launch, so WebGL layers rasterize on SwiftShader and hash the same on every machine; `gpu` leaves the choice to
+  Chrome (faster where a GPU exists, not reproducible across machines or drivers).
 
 ## 4. Render contract (`lib/runtime.js`)
 
@@ -424,7 +428,8 @@ brand, fps, dur, film, frameT, sub, subs }` (the last three default to `t`, 0 an
 | `springPV(t, k = 170, d = 26, m = 1) → [x, v]` | Unit step response 0 to 1 released at t = 0 with zero velocity. Exact under-, critically (a small band around ζ = 1) and over-damped closed forms; `t <= 0` gives `[0, 0]` |
 | `spring(t, k, d, m)`, `springVel(t, k, d, m)` | Position / velocity of the same response |
 | `SPRINGS` | Presets (below), frozen |
-| `resolveSpring(p) → { k, d, m? }` | `p` is a preset name, `{ k, d?, m? }` (no `d` = critically damped) or `{ duration, bounce }` |
+| `resolveSpring(p) → { k, d, m? }` | `p` is a preset name, `{ k, d?, m? }` (no `d` = critically damped), `{ duration, bounce }` or `{ zeta, freq }` |
+| `springFromRatio({ zeta = 0.7, freq = 2 })`, `ratioFromSpring(spec)` | Damping ratio and natural frequency in Hz: k = (2πf)², d = 2ζ(2πf), m = 1 |
 | `sp(t, preset = 'default')` | Spring by preset |
 | `springFromFeel({ duration = 0.5, bounce = 0 })`, `feelFromSpring({ k, d })` | Apple-style mapping: k = (2π / D)², d = 4π(1 - b) / D for b ≥ 0, d = 4π / (D(1 + b)) for b < 0, m = 1 |
 | `track(t, keys, spring = 'default')`, `trackVel(...)` | Value with many targets: `v0 + Σ (v_i - v_{i-1}) x spring(t - t_i)` over `keys = [[time, value, spring?], ...]`. The optional third element overrides the spring for that change; `keys[0]` is the rest value (its time is ignored). Continuous in position and velocity, still a pure function of t |
@@ -434,6 +439,11 @@ brand, fps, dur, film, frameT, sub, subs }` (the last three default to `t`, 0 an
 | `loopT(t, dur)`, `stagger(i, step = 0.03)`, `stepTime(t, rate = 12)` | Wrap time; stagger offsets; "on twos" for drawings only, never the camera |
 | `settleTime(spring = 'default', eps = 0.01)`, `overshoot(spring = 'default')` | Settle time in seconds (numeric, memoized); overshoot fraction (0 when ζ ≥ 1) |
 | `easeOutCubic(p)`, `easeInOutCubic(p)` | For non-physical fades only |
+| `cubicBezier(x1, y1, x2, y2)`, `EASES`, `resolveEase(e)` | Exact CSS timing curves (Newton on x(s) = p with a bisection fallback, ~1e-7); `EASES` = `linear`, `outCubic`, `outQuint`, `outExpo`, `outBack`, `inOutCubic`, `inOutQuart`, `inQuint`, `inExpo`; `e` = a name, a function or `[x1, y1, x2, y2]` (cached) |
+| `tween(t, t0, dur, from = 0, to = 1, ease = 'outQuint')` | Timed move on a curve; holds outside `[t0, t0 + dur]`; `dur <= 0` is a cut |
+| `windup(t, at, { lead = 0.18, depth = 0.1, spring = 'playful' })` | Anticipation as `track()` keys: −depth over `lead` (critically damped), then 1 from `at` |
+| `squash(s, { preserve = 'area' \| 'volume' \| 'none' })` | `{ along: s, across: 1/s \| 1/√s \| 1 }` |
+| `loopWave(t, dur, cycles = 1, phase = 0)`, `holdTime(words)`, `framesPerBeat(fps, bpm)` | Whole-cycle sine (non-integer cycles throw); 0.3 s per word + 0.5 s; fps·60/bpm |
 
 | Preset | k | d | ζ | Use |
 |---|---|---|---|---|
@@ -535,6 +545,32 @@ fonts are loaded, so a call without `family` draws the brand face.
 | `lineProgress(g, points, p, { width, color, cap, join })` | Strokes the first `p` of a polyline by arc length; returns the tip |
 | `ring`, `cursor(g, x, y, { scale, pressed, fill, stroke })` | Progress ring; arrow pointer with its hotspot at `(x, y)` |
 | `grain(g, W, H, frameIndex, { amount, seed, cell })`, `vignette(g, W, H, { strength, color })` | Texture (a pure function of seed and frame index; pass `c.frame` so stills, preview and blurred finals match) and edge darkening |
+
+### 6.x Motion Lab modules (0.2.0)
+
+- `lib/rng.js` `loopNoise(t, dur, { radius = 1, seed = 0, offset = 0 })`: `noise2` sampled on a circle of `radius` lattice
+  cells, one turn per `dur`, so `t = 0` and `t = dur` read the same point.
+- `lib/checks.js` (pure, isomorphic): `normalizeChecks`, `evaluateChecks(checks, series, { fps, filmFps, k0, frames, shots })`,
+  `seamAnalysis(series, { fps, maxKink, ratio })`, `seriesStats`, `diffs`, `median`, `spikes`. `renderFrame` hands every draw
+  `c.probe(name, value)`, which writes into `frameCtx.probes` when the caller passes a sink and is a no-op otherwise.
+  Check kinds: point `{ probe, at | frame, eq | near, tol, min, max }`, range `{ probe, from, to, min, max }`, event
+  `{ probe, crosses, at | frame, tolFrames, dir }` (first crossing), smooth `{ probe, kind: 'smooth', from, to, maxKink,
+  allow }` (|Δv| against its neighbours and the range median; changes under 10% of the range peak and frames within one of
+  a shot boundary are ignored). A check outside a probed range is skipped (`pass: null`).
+- `lib/gl.js`: `glLayer({ frag, uniforms, textures, scale, name })` → `{ draw(g, lt, c), dispose, frag, canvas }`. One
+  offscreen WebGL2 canvas per layer (`preserveDrawingBuffer`, no MSAA, dithering off, highp), sized to the stage's device
+  pixels × `scale`, a fullscreen triangle, then `g.drawImage` in the current transform. Built-in uniforms are declared only
+  when the source names them (`uTime`, `uLt`, `uP`, `uFrame`, `uRes`, `uDur`); custom values convert by the declared type.
+  `sdfText()` builds a signed distance texture with an exact 2D EDT (R32F when `OES_texture_float_linear`, else R16F).
+  Context loss throws.
+- `lib/three-layer.js`: `threeLayer(THREE, { setup, update, fov, ... })`, `studioEnv(THREE, renderer, opts)`. THREE is passed
+  in (no import inside `lib/`); `index.html` maps `three` and `three/addons/` to `node_modules`.
+- `tools/critique-flash.mjs`: `regionLuma` (mean relative luminance of the frame and its quadrants), `lumaTransitions`
+  (swings ≥ 0.1 between turning points, darker end < 0.8), `flashMetric` (more than 3 flashes in any 1-s window fails).
+  The live pixel pass computes the luminances next to the canvas for every analysed frame; `critique-metrics.mjs` re-exports
+  the module.
+- `tools/probe.mjs` (probes.json, motion.png, onion.png) and `tools/gif.mjs` (GIF with whole-centisecond delays, parsed back
+  by `gifTiming`): section 9 and `references/commands.md`.
 
 ## 7. Data files
 

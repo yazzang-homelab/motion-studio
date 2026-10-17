@@ -16,10 +16,12 @@ const RUBRIC = [
   ['sound', 'cues, sync, mix', '4 silent, generic pad, clipping · 6 generic SFX, drifting cues · 8 cuts on downbeats, hits within 25 ms, -14 LUFS ±0.5, ≤ -1 dBTP · 10 every hit lands on its event, builds to the drop'],
 ];
 const SEVERITY = [
-  ['P0', 'broken or banned; fix before any final render (determinism mismatch, frame 0 empty, overlapping/unreadable key text, banned default look, invented UI, loop seam jump, clipping)'],
+  ['P0', 'broken or banned; fix before any final render (determinism mismatch, frame 0 empty, > 3 flashes per second, a failing film check, overlapping/unreadable key text, banned default look, invented UI, loop seam jump, clipping)'],
   ['P1', 'clearly hurts the film (dead beat, sliding instead of easing, a pop or stutter, weak hook, cramped type, a cue a frame off its event)'],
   ['P2', 'polish (spacing, timing nudge, color balance, grain, a long hold)'],
 ];
+// Only for films with checks (the critique output of a film without them stays as it was).
+const CHECK_HUNT = ['a contact, click or light a frame off its beat; a velocity kink', 'metrics checks + node tools/probe.mjs (motion.png speed graph, --onion A:B onion skin)'];
 const HUNT = [
   ['text overlapping during swaps', 'contact.png + strip.png around every state change'],
   ['anything sliding instead of easing', 'strip.png spacing between frames'],
@@ -29,6 +31,7 @@ const HUNT = [
   ['a dead beat with nothing happening', 'metrics deadSpans/static beats + contact.png'],
   ['a stutter at the loop seam', 'loop.png + metrics loop (loop films)'],
   ['frame 0 empty', 'metrics frame0 + first contact tile'],
+  ['strobing, flashes faster than 3 per second', 'metrics flash (frame and quadrants)'],
 ];
 
 function status(ok, skip, warn) { return skip ? 'n/a ' : !ok ? 'FAIL' : warn ? 'WARN' : 'PASS'; }
@@ -80,9 +83,17 @@ export function report(r, crit, cfg, fmt, gate, nextRound, where) {
   const realPops = px.pops.list.filter((p) => !p.atShotBoundary);
   L.push(`| pops | ${status(!realPops.some((p) => p.kind === 'flicker'))} | ${realPops.length ? realPops.slice(0, 6).map((p) => `${p.kind} f${p.frame} ${fmtTime(p.t)} ×${p.ratio}`).join(', ') : 'no single-frame pops or jumps'}; ${px.pops.cuts.length} hard cut(s) on shot boundaries${px.pops.note ? `; ${px.pops.note}` : ''} |`);
   L.push(`| frame 0 | ${status(px.frame0.pass, px.frame0.skipped)} | ${px.frame0.skipped ? `skipped: ${px.frame0.reason}` : `${(px.frame0.content * 100).toFixed(1)}% of pixels differ from the smooth background (most common colour rgb(${px.frame0.background?.join(',')})) · edge share ${px.frame0.edgeShare}`} |`);
+  const fl = px.flash;
+  if (fl) L.push(`| flash | ${status(fl.pass, fl.skipped)} | ${fl.skipped ? fl.reason : `worst ${fl.worst} flash(es) in 1 s${fl.worstRegion ? ` (${fl.worstRegion}${fl.worstAt != null ? ` from ${fmtTime(fl.worstAt)}` : ''})` : ''}, limit ${fl.maxPerSecond} (WCAG 2.3.1, luminance swings ≥ 0.1)`} |`);
   const lp = r.loop;
   const closure = lp.unwrapped ? `hash(0) ${lp.hashEqual ? '=' : '≠'} hash(dur, { wrap: false })${lp.hashEqual ? '' : ` (end vs first Δ${lp.endDiff})`}` : `${lp.note ?? 'no unwrapped hash'}: continuity only`;
   L.push(`| loop seam | ${status(lp.pass, !lp.enabled)} | ${lp.enabled ? `${closure}; last→first ${lp.seamDiff} vs last step ${lp.prevDiff} (ratio ${lp.ratio ?? 'n/a'}, ≤ ${LOOP_RATIO})` : lp.reason === 'range' ? lp.note : 'not a loop film (studio.json loop=false)'} |`);
+  const ck = r.checks;
+  if (ck) {
+    const bad = ck.results.filter((x) => x.pass === false);
+    const seamBad = (ck.seam ?? []).filter((x) => !x.pass);
+    L.push(`| checks | ${status(ck.pass)} | ${ck.passed}/${ck.total} numeric checks pass over ${ck.frames} frames (${ck.probes.length} probe channel(s))${ck.skipped ? `, ${ck.skipped} outside the range` : ''}${bad.length ? `; FAIL ${bad.slice(0, 4).map((x) => `"${x.name}"${Number.isFinite(x.frame) ? ` f${x.frame}` : ''}`).join(', ')}` : ''}${ck.seam ? `; loop seam ${seamBad.length ? `jumps in ${seamBad.map((x) => x.probe).join(', ')}` : `smooth in ${ck.seam.length} probe(s)`}` : ''}; speed graph: node tools/probe.mjs |`);
+  }
   L.push(`| corners | ${status(px.corners.pass)} | frames with small content in the ${Math.round(crit.cornerPct * 100)}% corner boxes: TL ${Math.round(px.corners.share.tl * 100)}% · TR ${Math.round(px.corners.share.tr * 100)}% · BL ${Math.round(px.corners.share.bl * 100)}% · BR ${Math.round(px.corners.share.br * 100)}% |`);
   L.push(`| borders | ${status(px.borders.pass)} | frames with edge lines on ≥ 3 sides: ${Math.round(px.borders.share * 100)}% (top ${Math.round(px.borders.sides.top * 100)}% · bottom ${Math.round(px.borders.sides.bottom * 100)}% · left ${Math.round(px.borders.sides.left * 100)}% · right ${Math.round(px.borders.sides.right * 100)}%) |`);
   const sy = r.sync;
@@ -102,7 +113,7 @@ export function report(r, crit, cfg, fmt, gate, nextRound, where) {
   L.push('', '## Severity');
   for (const [k, v] of SEVERITY) L.push(`- ${k} ${v}`);
   L.push('', '## Hunt for (course step 11)');
-  for (const [k, v] of HUNT) L.push(at(`- ${k}: ${v}`));
+  for (const [k, v] of r.checks ? [...HUNT, CHECK_HUNT] : HUNT) L.push(at(`- ${k}: ${v}`));
   L.push('', 'Full harsh-director prompt: prompts/critique-pass.txt. Be a harsh motion director, not a proud author.');
   L.push('', '## Append to docs/review_log.md (fill every <...>; problems worst first, P0 first)', '', '```');
   L.push(`## Round ${nextRound} — ${fmt} — <what changed since the last round>`);

@@ -29,6 +29,8 @@ defines these seven; its step 02 house rules list six (no composition) and its s
 | fallback font visible, or a `font-fallback` finding in the live `metrics.md` (P0: a character has no glyph in its font, or the family is not registered) | brand <= 5 (or readability <= 6 without a brand); P0 until a font that covers the text is registered |
 | invented product UI | brand <= 4, P0 |
 | loop film with a seam jump or a loop that does not close (`loop.png`, metrics `loop`) | motion <= 5, P0 |
+| a `flash` finding (more than 3 luminance flashes in 1 s) | readability <= 5, P0 until slowed, softened or shrunk |
+| a failing film check (metrics `checks`, `npm run probe`) | the axis it measures <= 6 (motion for timing and kinks, sound for a sync check), P0 |
 | cue sync share below 0.8 with no listed reason | sound <= 6 |
 | integrated loudness outside -14 LUFS +-0.5 or true peak above -1 dBTP (with `--video`, in `out/review/<fmt>/video/metrics.md`) | sound <= 6 |
 | silent span of 1 s or more in the mix (`audio-gap`, P1, in `out/review/<fmt>/video/metrics.md`; `deliver` fails the same span as `silence`) | sound <= 7 (the P1 rule) until the stem is fixed |
@@ -49,7 +51,7 @@ defines these seven; its step 02 house rules list six (no composition) and its s
 
 | Level | Meaning | Gate effect |
 |---|---|---|
-| P0 | broken or banned: determinism mismatch, blank or fallback-font frames (the tool's P0 `font-fallback`), frame 0 empty, overlapping or unreadable text at a key moment, banned default look, invented UI, wrong name or logo, loop seam jump, key content outside the safe area, clipping | any P0 in the last round fails the gate |
+| P0 | broken or banned: determinism mismatch, photosensitive flashing (> 3 per second), a failing film check, blank or fallback-font frames (the tool's P0 `font-fallback`), frame 0 empty, overlapping or unreadable text at a key moment, banned default look, invented UI, wrong name or logo, loop seam jump, key content outside the safe area, clipping | any P0 in the last round fails the gate |
 | P1 | clearly hurts the film: dead beat, sliding instead of easing, a pop or stutter, weak hook, cramped type, a cue more than one frame off its event, a cropped-looking format | caps the axis at 7, so the gate fails until fixed |
 | P2 | polish: spacing, a timing nudge, color balance, grain, a long hold | no gate effect |
 

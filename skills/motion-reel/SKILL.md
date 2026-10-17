@@ -68,7 +68,7 @@ record them at the top of `docs/shotlist.md`.
 
 | Route | Use it for | This skill does |
 |---|---|---|
-| A code-drawn (default) | showreels, UI motion, product films, loops | runs the full pipeline below |
+| A code-drawn (default) | showreels, UI motion, product films, loops; 3D products and shader looks through `/motion-studio:gl-scenes` | runs the full pipeline below |
 | B framework | the user names Remotion or HyperFrames | hands off via `/motion-studio:seek-engine` (Remotion license gate, Node 22+) |
 | C mixed pipeline | characters or physics from image/video models | needs keys and a budget; plan with `/motion-studio:director-brief` |
 | D footage edit | the user's own recorded clips | out of scope for v0.1; say so |
@@ -133,16 +133,23 @@ in [references/pipeline.md](references/pipeline.md). Read it before stage 0 on a
   written on this grid, never on an assumed one.
 - Stage 4: brief `motion-studio:motion-director` with the inputs, `docs/style_guide.md` and
   `audio/beats.json`. Scene changes land on downbeats, a hook lands in the first 2 s, frame 0
-  already shows content, something new happens every 2 to 4 s. Show the shot list and wait for
+  already shows content, something new happens every 2 to 4 s. The shot list opens with a numeric motion spec
+  ([assets/motion-spec.md](assets/motion-spec.md): GOAL, OUTPUT, TIME, LOOK, MODEL, MOTION, SHOTS in frame ranges,
+  CAMERA, SOUND, BANNED, QA), every adjective replaced by a number from
+  `${CLAUDE_SKILL_DIR}/../springs/references/numbers.md`. Show the shot list and wait for
   the user's OK (PLAN FIRST). A rejection means rewriting the shot list, never patching code.
   Record the decision on the `Status:` line of `docs/shotlist.md`.
 
 ### Stage 5: build
 
 Write `film/film.js` with `defineFilm`, one `scene()` per shot, positions from the layout `L`
-(never literal pixels), motion from `lib/motion.js` springs (`sp`, `track`, `loopTrack`),
-per-element seeded randomness (`rngFor`), and cues for every SFX moment. Follow the project
-`CLAUDE.md`. Run `npm run lint` after edits and `npm run preview` when the user wants to watch.
+(never literal pixels), motion from `lib/motion.js` springs (`sp`, `track`, `loopTrack`; ζ-and-Hz springs as
+`{ zeta, freq }`) and named timing curves where the landing frame is choreography (`tween(..., 'outExpo')`),
+per-element seeded randomness (`rngFor`), and cues for every SFX moment. 3D subjects and shader looks (a product in
+studio light, liquid metal, SDF morphs) are a `glLayer` or `threeLayer` inside a scene: `/motion-studio:gl-scenes`.
+Turn the spec's QA line into probes and checks (`c.probe(name, value)`, `checks: [...]` in the film factory) so the
+numbers are tested, not eyeballed. Follow the project `CLAUDE.md`. Run `npm run lint` after edits and
+`npm run preview` when the user wants to watch.
 
 ### Stage 6: critique loop (at least 3 rounds)
 
@@ -153,7 +160,8 @@ Each round builds the evidence first, then briefs the critic (it cannot render o
    `node tools/render.mjs --format <fmt> --draft --sub 1 --scale 0.5`, `npm run sfx`, `node tools/mix.mjs --format <fmt>`.
 3. Two evidence passes that never overwrite each other: `node tools/critique.mjs --format <fmt>` (live film, in
    `out/review/<fmt>/`) and `node tools/critique.mjs --format <fmt> --video out/<fmt>/final.mp4` (the mixed render, in
-   `out/review/<fmt>/video/`).
+   `out/review/<fmt>/video/`). When the film declares checks, `npm run probe -- --format <fmt>` adds the numbers:
+   `probes.json`, the speed graph `motion.png`, and `--onion <a>:<b>` writes `onion.png` for a move that feels wrong.
 4. Brief `motion-studio:motion-critic` with the round number, the format, what changed and
    `Evidence: both, already produced` (template in the pipeline runbook). It looks at every PNG (every page of a paged
    sheet: `contact.png`, `contact-2.png` ...) and both `metrics.md` files, scores the 7 axes 1 to 10 (sound from the mixed
@@ -172,7 +180,8 @@ which runs all of them). The final render and `build` take minutes: start them w
 log, and read the result only after the process has exited (pipeline runbook, "Long commands"). Then report with
 [assets/delivery-note.md](assets/delivery-note.md):
 paths, formats, durations, loudness, rounds and last scores, time spent, and the three things you
-would improve next.
+would improve next. A GIF for a README, a landing page or a chat is `npm run gif -- --format <fmt>` after the mix
+(25 fps by default; GIF stores delays in whole centiseconds, so 24 and 60 fps are snapped to 25 and 50).
 
 ## Gates
 
@@ -199,6 +208,9 @@ would improve next.
 - Banned looks: centered title on a gradient, everything fading in, corner labels, frame borders,
   glow on UI chrome, generic particle bursts.
 - One display face, one UI face, one accent color unless the brief says otherwise.
+- One hero move per shot. Secondary motion travels 50 to 70% of it and starts 100 to 200 ms later; background
+  drift stays under 5%. Never start every element on the same frame.
+- No more than 3 luminance flashes per second (the critique fails it as a P0 `flash`).
 - Reframe type and UI per format through `L`; never crop one format into another.
 - Keys live in `.env`. Refer to them by variable name (`ELEVENLABS_API_KEY`, `FAL_KEY`); never
   print, paste or commit a key value.

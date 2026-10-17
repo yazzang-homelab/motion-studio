@@ -11,6 +11,7 @@
   "primaryFormat": "9x16",
   "capture": "auto",
   "browser": "auto",
+  "gl": "software",
   "encode": { "crf": 16, "preset": "slow", "tune": "animation", "previewPreset": "veryfast" },
   "poster": null,
   "safe": {
@@ -38,7 +39,8 @@
     "musicGainDb": -2,
     "sfxGainDb": 0,
     "voiceGainDb": 0,
-    "duck": true
+    "duck": true,
+    "sfxLagFrames": 1
   },
   "gate": {
     "enabled": true,

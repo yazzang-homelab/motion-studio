@@ -67,6 +67,12 @@ downloading assets. Anything you cannot find: write it under `## Open questions`
    feel (snappy UI, default containers, heavy type and logo, playful mascots) · SFX (`type @ s`, types from
    click tick pop thump whoosh swoosh riser hit chime type glitch snap) · Out (the transition).
 5. Frame 0 already shows content (the hook is mid-motion at t = 0). Loop films: the last frame sets up the first.
+   Above the table, write the numeric motion spec (`${CLAUDE_PLUGIN_ROOT}/skills/motion-reel/assets/motion-spec.md`,
+   in a skills-only install `${CLAUDE_SKILL_DIR}/../motion-reel/assets/motion-spec.md`): TIME in frames, MOTION with named
+   curves and springs as ζ/Hz, SHOTS as frame ranges with one hero move each, CAMERA (FOV, moves), BANNED and a QA line
+   of checks the film can assert (a value at a frame, an event on a beat frame, a smooth seam). No adjective without a
+   number (`skills/springs/references/numbers.md`): "premium" is `outQuint` 750 ms and ζ 0.8, "dynamic" an 11-frame
+   anticipation and a ζ 0.55 landing.
 6. UI shots name the real file they animate (`assets/brand/components/03-card-....png`). If the story needs a screen
    the manifest does not have, add an open question; never plan an invented screen.
 7. On-screen copy comes from `assets/manifest.json` (`scout.copy`, checked by the asset-scout, before the raw

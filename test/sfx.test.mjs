@@ -232,3 +232,13 @@ test('sfx: loadSamples(null | "none") skips the sample folder; --no-samples does
     assert.deepEqual(JSON.parse(none.stdout.trim()).overrides, []);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('renderSfx lag: one frame at 60 fps moves every cue by exactly 800 samples (48 kHz), the waveform otherwise identical', () => {
+  const cues = [{ t: 0.5, type: 'thump' }, { t: 1.2, type: 'click', pan: 0.3 }];
+  const a = X.renderSfx(cues, { duration: 2 });
+  const b = X.renderSfx(cues, { duration: 2, lag: 1 / 60 });
+  a.placed.forEach((p, i) => assert.ok(Math.abs(b.placed[i].start - p.start - 1 / 60) < 1e-4, `cue ${i} start moves by one frame`));
+  const L0 = a.channels[0];
+  const L1 = b.channels[0];
+  for (let i = 0; i + 800 < L1.length; i += 997) assert.ok(Math.abs(L1[i + 800] - L0[i]) < 1e-6, `sample ${i} reappears 800 samples later`);
+});

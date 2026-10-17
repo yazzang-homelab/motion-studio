@@ -116,8 +116,53 @@ not registered; register a font that covers the text (`npm run fonts -- add-file
 | `loopTrack(t, keys, dur, spring, cycles)` | Seamless loops: key times in `0..dur`, last value equals the first |
 | `indicator(t, stops, { width })` -> `{ left, right }` · `swapAlpha(t, tIn, tOut)` | Stretching tab indicator; alpha for content inside a morphing box |
 | `springFromFeel({ duration, bounce })` · `stagger(i, step = 0.03)` · `stepTime(t, rate = 12)` | Apple-style spring; delay of item i; "on twos" (use `c.frameLt`, drawings only) |
+| `{ zeta, freq }` anywhere a spring goes · `springFromRatio({ zeta, freq })` · `ratioFromSpring(spec)` | Damping ratio and natural frequency (Hz): `track(t, keys, { zeta: 0.6, freq: 2 })` |
+| `tween(t, t0, dur, from, to, ease = 'outQuint')` · `EASES` · `resolveEase(e)` · `cubicBezier(x1, y1, x2, y2)` | Timed move on a named curve (`outExpo`, `outQuint`, `outCubic`, `outBack`, `inOutQuart`, `inOutCubic`, `inExpo`, `inQuint`, `linear`) or `[x1, y1, x2, y2]` |
+| `windup(t, at, { lead, depth, spring })` · `squash(s, { preserve })` -> `{ along, across }` | Anticipation (dip, then spring to 1 from `at`); squash and stretch that keeps area or volume |
+| `loopWave(t, dur, cycles, phase)` · `loopNoise(t, dur, { radius, seed, offset })` (rng.js) | Periodic sine with whole cycles; noise sampled on a circle, so t = 0 and t = dur match |
+| `holdTime(words)` · `framesPerBeat(fps, bpm)` | Minimum text hold (0.3 s per word + 0.5 s); frames per beat (round each beat's own time, never a stepped count) |
 | `clamp`, `lerp`, `invLerp`, `remap`, `smoothstep`, `easeOutCubic` | Scalars; `easeOutCubic` only for opacity fades |
 | `rngFor(...parts)`, `range(r, a, b)`, `pick(r, arr)`, `shuffle(r, arr)`, `noise1(x, seed)`, `noise2(x, y, seed)` | Seeded randomness: one stream per element, created inside the draw |
+
+## Probes and checks (`lib/timeline.js`, `lib/checks.js`)
+
+Numbers the spec promises are proved, not eyeballed. Inside any draw, `c.probe(name, value)` records a value for the frame
+being painted: a finite number, a boolean (0/1) or `[x, y, z?, w?]` (stored as `name.x`, `name.y` ...). It is a no-op outside
+`npm run probe` and the critique, never changes a pixel, and names are film-wide (prefix chapter probes; inside a replay such
+as `paintAt`, guard with `!c.depth`). The film factory may return `checks: [...]` or `(grid, ctx) => [...]`:
+
+| Kind | Shape | Passes when |
+|---|---|---|
+| point | `{ name?, probe, at \| frame, eq \| near, tol = 1e-3, min?, max? }` | the value at that time is within `tol` of `eq` (and inside `min`/`max`) |
+| range | `{ name?, probe, from, to, min?, max? }` | every frame in `[from, to)` stays inside `min`/`max` |
+| event | `{ name?, probe, crosses, at \| frame, tolFrames = 0, dir = 'any' \| 'up' \| 'down', from? }` | the first crossing of `crosses` lands on that frame ± `tolFrames` (foot contact, light on, label in) |
+| smooth | `{ name?, probe, kind: 'smooth', from?, to?, maxKink = 4, allow = [] }` | no velocity kink or jump (shot boundaries and `allow` times excused) |
+
+Times are seconds from `grid` (`grid.beat(8)`); `frame` is an output-frame index at the film fps. Loop films also get a seam
+check per probe: value and velocity across frame N−1 → 0. A failing check is a P0 in the critique; `npm run probe` draws
+`motion.png` and, with `--onion A:B`, `onion.png`. Runtime: `window.renderAt(t)` (= `seek`), `__studio.probes(t)`,
+`__studio.probeRun({ from, to, fps })`, `__studio.checks()`; `index.html?render&t=2.5` paints that time.
+
+## GL layers: 3D and shaders (`lib/gl.js`, `lib/three-layer.js`)
+
+A GL layer is a scene draw: it paints an offscreen WebGL2 canvas and composites it with `drawImage` in the current
+transform, so layers, cues, motion blur and every format work unchanged. Full guide: the `gl-scenes` skill.
+
+| Call | Meaning |
+|---|---|
+| `glLayer({ frag, uniforms, textures, scale = 1, name })` -> `{ draw(g, lt, c), dispose() }` | One GLSL ES 3.00 fragment shader writing `fragColor`; `scene(0, 6, 'blob', layer.draw)` |
+| built-in uniforms (declared only when used) | `uTime` (`c.t`), `uLt`, `uP`, `uFrame`, `uRes` (device px), `uDur` |
+| `uniforms(t, c, lt)` -> `{ name: value }` | Converted by the declared GLSL type: numbers, arrays (vec/mat, uniform arrays), `'#rrggbb'` -> vec3, booleans |
+| `sdfText(text, { font, weight, style, size, pad, letterSpacing })` | Signed distance texture of text (exact EDT) for extruded or melting type: `textures: { uText: sdfText('MOTION', {...}) }` |
+| `GLSL.sdf` · `GLSL.raymarch` · `GLSL.lighting` · `GLSL.color` · `GLSL.noise` · `GLSL.text` | Chunks: shapes + `smin`; `march`, `calcNormal`, `softShadow`, `ao`; `fresnelSchlick`, `envStudio`; tonemap; `loopNoise`; `textSdf` |
+| `threeLayer(THREE, { setup, update, fov = 30, toneMapping = 'aces', exposure, background, shadows, scale })` | Three.js inside a scene: `setup` once (synchronous), `update(t, ctx)` sets every transform from `t` |
+| `studioEnv(THREE, renderer, { panels, room, blur })` | Reflection-only softbox environment (chrome reads as chrome, white stays white) |
+| `glInfo()` | `{ renderer, version }` (SwiftShader under `"gl": "software"`) |
+
+Rules: time enters only through uniforms or `update(t)`; no `THREE.Clock`, `setAnimationLoop` or accumulating state;
+noise loops via `loopNoise`. `studio.json` `"gl": "software"` (default) renders WebGL on SwiftShader so frames hash the same
+on every machine; `"gpu"` is faster but not reproducible. Three.js: `npm run three:add` (pins 0.160.0); `index.html`
+maps `three` and `three/addons/`. Cost is per pixel and per subframe: `scale: 0.5` for drafts, `subframes: 2` for GL finals.
 
 ## Opening on content
 

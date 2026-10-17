@@ -32,9 +32,14 @@ motion-studio plugin repository (film API in section 5, libraries in section 6).
 - Reframe type and UI per format with `L.pick()` / `L.split()`. Never crop one format out of another.
 
 ## Motion
-- Springs from `lib/motion.js` for everything that moves: `sp(t, preset)`, `track()`, `springFromFeel()`. No linear
-  slides. `easeOutCubic` only for pure opacity fades. Tiny overshoot on UI (`snappy`), none on type (`default`,
-  `heavy`). `playful` only for mascots and stickers.
+- Springs from `lib/motion.js` for everything that moves: `sp(t, preset)`, `track()`, `springFromFeel()`, or a
+  damping ratio as `{ zeta, freq }`. No linear slides. A move whose landing frame is choreography (kinetic type, logo,
+  camera, exits) may use a named curve: `tween(t, t0, dur, a, b, 'outExpo')`; entrances ease out, exits ease in and run
+  40 to 50% shorter, camera moves `inOutQuart`. `easeOutCubic` only for pure opacity fades. Tiny overshoot on UI
+  (`snappy`), none on type (`default`, `heavy`). `playful` only for mascots and stickers.
+- One hero move per shot; secondary motion 50 to 70% of its travel, 100 to 200 ms later; background drift under 5%.
+  Hold every title at least `holdTime(words)` (0.3 s per word + 0.5 s). No more than 3 luminance flashes per second.
+- Periodic motion in a loop film completes whole cycles: `loopWave(t, dur, cycles)`, `loopNoise(t, dur)`.
 - A value with more than one target uses `track(t, keys)`: one spring per change. Never restart a spring.
 - Loops use `loopTrack()`: key times in `0..duration` (never wrapped; outside throws), last value equals the first.
   A key exactly at `duration` is the seam change (frame 0 shows the pre-seam value and eases to the first). Frame 0

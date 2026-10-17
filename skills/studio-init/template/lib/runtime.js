@@ -2,8 +2,13 @@
 //   window.seek(t)   synchronous paint of frame t (loop films wrap, others clamp to [0, duration]); seek(t, { frameT, sub,
 //                    subs }) paints subframe `sub` of `subs` of the output frame at frameT (see renderFrame in timeline.js:
 //                    scenes get c.t = the subframe time but c.frame / c.frameT / c.sub / c.subs of the OUTPUT frame)
+//   window.renderAt(t) the same function as seek (the name other seek-based pipelines use)
 //   window.__studio  { version, ready, error, meta, grid, cues(), shots(), frame(), hash(), pixels(), textUse(), coverage(),
-//                    textTrack }
+//                    textTrack, renderAt, probes(t), probeRun({ from, to, fps }), checks() }
+//   probes(t) paints t and returns the { name: value } its scenes recorded with c.probe(); probeRun paints every frame of a
+//   range in one call and returns { fps, k0, frames, total, names, series } (series[name][k − k0], null = not recorded);
+//   checks() lists the film's normalized checks (lib/checks.js). tools/probe.mjs and the critique evaluate them.
+//   Render mode with ?t=<sec> paints that time after boot, so a screenshot of index.html?render&t=2.5 is that frame.
 //   frame({ wrap: false }) / hash(t, { wrap: false }) paint the raw time clamped to [0, duration] even in a loop film,
 //   so a loop check can compare hash(0) with hash(duration, { wrap: false }) (wrapped, they are the same frame).
 //   textUse() / coverage(): the critique's font check. With window.__TEXT_TRACK__ === true set before the page loads (or
@@ -245,7 +250,7 @@ export function boot(film, { canvasId = 'stage' } = {}) {
   // Text-use registry (lib/draw.js): opt-in, set before the first paint. Never switched off here: a caller that turned it on stays on.
   if (window.__TEXT_TRACK__ === true || ['1', 'true'].includes(params.get('texttrack'))) setTextTracking(true);
   // textTrack is a getter: it follows setTextTracking() even when a film switches the registry on or off after boot.
-  const studio = { version: 1, ready: null, error: null, render: RENDER, get textTrack() { return isTextTracking(); }, meta: null, grid: null, cues: () => [], shots: () => [], frame: notReady, hash: notReady, pixels: notReady, textUse: notReady, coverage: notReady };
+  const studio = { version: 1, ready: null, error: null, render: RENDER, get textTrack() { return isTextTracking(); }, meta: null, grid: null, cues: () => [], shots: () => [], frame: notReady, hash: notReady, pixels: notReady, textUse: notReady, coverage: notReady, probes: notReady, probeRun: notReady, checks: () => [] };
   window.__studio = studio;
   // HyperFrames bridge (experimental): a host page dispatches hf-seek with { detail: { time } }.
   window.addEventListener('hf-seek', (e) => {
@@ -307,18 +312,47 @@ async function start(film, canvasId, params, RENDER, studio) {
   };
   const fctx = { W, H, u: ctx.L.u, fmt, L: ctx.L, grid: ctx.grid, brand: ctx.brand, fps, dur, film: ctx };
   // blur = { frameT, sub, subs } for one subframe of a blurred frame: t is that subframe's time, frameT the output frame's.
-  const paint = (t, wrap = true, blur = null) => {
+  // probes = a Map that collects this paint's c.probe() values (lib/checks.js); null paints without recording.
+  const paint = (t, wrap = true, blur = null, probes = null) => {
     g.setTransform(sx, 0, 0, sy, 0, 0); // scenes always draw in logical W×H
     const tt = norm(Number(t), wrap);
     const ft = blur && Number.isFinite(Number(blur.frameT)) ? norm(Number(blur.frameT), wrap) : null;
-    renderFrame(built, g, tt, ft === null ? fctx : { ...fctx, frameT: ft, sub: blur.sub, subs: blur.subs });
+    const fc = ft === null ? fctx : { ...fctx, frameT: ft, sub: blur.sub, subs: blur.subs };
+    renderFrame(built, g, tt, probes ? { ...fc, probes } : fc);
   };
   paint(0);
   // seek(t) paints one time; the optional 2nd argument { frameT, sub, subs } says this is subframe `sub` of `subs` of the
-  // output frame at frameT (the page-capture renderer passes it for every screenshot it averages).
+  // output frame at frameT (the page-capture renderer passes it for every screenshot it averages). renderAt is the same
+  // function under the name other seek-based pipelines use (window.renderAt(t)).
   window.seek = (t, blur) => {
     paint(t, true, blur && typeof blur === 'object' ? blur : null);
     return true;
+  };
+  window.renderAt = window.seek;
+
+  // Probes: probes(t) paints t and returns { name: value } of that paint; probeRun paints every output frame of a range
+  // (at the film fps, or `fps`) in one call and returns the series, null where a frame did not record the name.
+  const probes = (t) => {
+    const sink = new Map();
+    paint(Number(t), true, null, sink);
+    return Object.fromEntries(sink);
+  };
+  const probeRun = ({ from = 0, to = dur, fps: sfps = fps } = {}) => {
+    const f = Number(sfps) > 0 ? Number(sfps) : fps;
+    const total = Math.max(1, Math.round(dur * f));
+    const k0 = clamp(Math.round(Number(from) * f), 0, total - 1);
+    const k1 = clamp(Math.round(Number(to) * f), k0 + 1, total);
+    const series = {};
+    for (let k = k0; k < k1; k++) {
+      const sink = new Map();
+      paint(k / f, true, null, sink);
+      for (const [name, v] of sink) {
+        if (!series[name]) series[name] = new Array(k1 - k0).fill(null);
+        series[name][k - k0] = v;
+      }
+    }
+    const names = Object.keys(series).sort();
+    return { fps: f, k0, frames: k1 - k0, total, names, series: Object.fromEntries(names.map((n) => [n, series[n]])) };
   };
 
   const capture = cfg.capture === 'canvas' || cfg.capture === 'page' ? cfg.capture : built.capture;
@@ -335,7 +369,13 @@ async function start(film, canvasId, params, RENDER, studio) {
     textUse: () => Promise.resolve(getTextUse()),
     coverage,
     seek: window.seek,
+    renderAt: window.seek,
+    probes,
+    probeRun,
+    checks: () => built.checks.map((c) => JSON.parse(JSON.stringify(c))),
   });
+  // index.html?render&t=2.5 shows that frame (preview reads ?t= itself).
+  if (RENDER && params.has('t')) paint(Number(params.get('t')) || 0);
   if (!RENDER) startPreview({ canvas, paint, ctx, built, cfg, fmt, params }); // studio-allow preview
 }
 

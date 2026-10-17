@@ -302,7 +302,9 @@ export function cueKeys(cues) {
  * cues → stereo bus of exactly round(duration·sr) samples, true-peak limited to −1 dBFS.
  * Returns { channels, placed, warnings }. Throws on an unknown cue type (listing the valid ones).
  */
-export function renderSfx(rawCues, { duration, seed = 1, samples = {}, loop = false, sr = SR } = {}) {
+// lag (seconds, ≥ 0) moves every cue later: one frame (audio.sfxLagFrames: 1) lands the sound just after the picture, which
+// reads as in sync because light reaches the eye before the brain fuses the sound (at 48 kHz / 60 fps, 800 samples).
+export function renderSfx(rawCues, { duration, seed = 1, samples = {}, loop = false, sr = SR, lag = 0 } = {}) {
   if (!(duration > 0)) throw new Error(`sfx: duration must be > 0 (got ${duration})`);
   const cues = normalizeCues(rawCues);
   for (const c of cues) {
@@ -322,7 +324,7 @@ export function renderSfx(rawCues, { duration, seed = 1, samples = {}, loop = fa
       anchor = s.anchor / c.pitch;
       if (c.type === 'riser') anchor -= riserLength(cues, i); // a sampled riser peaks where a synthesized one ends
     } else ({ data, anchor } = synthVoice(c.type, { seed, i: keys[i], pitch: c.pitch, sr, length: c.type === 'riser' ? riserLength(cues, i) : undefined }));
-    const start = c.t - anchor;
+    const start = c.t + lag - anchor;
     addAt(bus, data, loop ? ((start % duration) + duration) % duration : start, { gain: c.gain, pan: c.pan, sr, wrap: loop });
     placed.push({ t: c.t, type: c.type, start: Math.round(start * 1e4) / 1e4, gain: c.gain, pan: c.pan, pitch: c.pitch, sample: !!samples[c.type] });
   });
@@ -361,6 +363,7 @@ const SPEC = {
   out: { type: 'string', desc: 'output WAV (default: studio.json audio.sfx or audio/sfx.wav)' },
   dur: { type: 'number', desc: 'length in seconds (default: film duration)' },
   seed: { type: 'number', default: 1, desc: 'noise seed for every voice' },
+  'lag-frames': { type: 'number', desc: 'land every cue this many frames after its time (default: studio.json audio.sfxLagFrames, 0)' },
   samples: { type: 'string', default: 'audio/samples', desc: 'folder of licensed <type>.wav overrides (none or --no-samples: synthesize everything)' },
   'dump-cues': { type: 'boolean', desc: 'write audio/cues.json from the film and exit (no audio)' },
   list: { type: 'boolean', desc: 'print the voice table and exit' },
@@ -410,7 +413,10 @@ async function cli() {
   if (!(duration > 0)) throw new UsageError(`--dur must be > 0 (got ${duration})`);
   const samples = await loadSamples(root, flags.samples);
   for (const [type, s] of Object.entries(samples)) log(`sfx: sample override ${type} ← ${path.relative(root, s.file).replace(/\\/g, '/')}`);
-  const { channels, placed, warnings } = renderSfx(src.cues, { duration, seed: flags.seed, samples, loop: src.loop === true });
+  const lagFrames = flags['lag-frames'] ?? cfg.audio.sfxLagFrames ?? 0;
+  if (!(Number.isInteger(lagFrames) && lagFrames >= 0 && lagFrames <= 6)) throw new UsageError(`--lag-frames must be a whole number 0–6 (got ${lagFrames})`);
+  if (lagFrames) log(`sfx: every cue lands ${lagFrames} frame(s) after its time (${(lagFrames * 1000 / cfg.fps).toFixed(1)} ms)`);
+  const { channels, placed, warnings } = renderSfx(src.cues, { duration, seed: flags.seed, samples, loop: src.loop === true, lag: lagFrames / cfg.fps });
   for (const w of warnings) log(`sfx: warning: ${w}`);
   if (!placed.length) log('sfx: no cues — writing silence of the film length');
   const outRel = flags.out ?? (cfg.audio.sfx && cfg.audio.sfx !== 'none' ? cfg.audio.sfx : 'audio/sfx.wav');

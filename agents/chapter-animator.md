@@ -66,7 +66,12 @@ tool's `run_in_background` option with a log under `out/check/`, short polls of 
      `loopTrack` in loop films, `swapAlpha` for text inside a morphing container, `indicator` for tab edges,
      `stepTime(c.frameLt, 12)` only for drawn elements (never camera; `c.frameLt` is the output frame's time, so each step is
      a hard cut even with motion blur). Tiny overshoot on UI, none on type. `wrapText()` for multi-line copy and
-     `fitFontSize(..., { step: 16 })` for bitmap fonts (`docs/API.md` in the project has the signatures).
+     `fitFontSize(..., { step: 16 })` for bitmap fonts (`docs/API.md` in the project has the signatures). A timed move
+     whose landing frame is choreography uses a named curve (`tween(c.t, t0, dur, a, b, 'outExpo')`, `inExpo` for exits);
+     a spring the guide gives as a damping ratio is `{ zeta, freq }`; anticipation is `windup`, squash `squash(s)`.
+     3D or shader elements use `glLayer` / `threeLayer` exactly as the guide shows (`lib/gl.js`, `lib/three-layer.js`).
+   - Numbers the guide asks to prove: record them with `c.probe('<chapter>.<name>', value)` (names are film-wide, so
+     prefix your chapter) and leave the `checks` to the director, who owns `film/film.js`.
    - Layout: every size in `c.L.u` units, every position from `c.L.S`, `c.L.pos`, `c.L.split`, `c.L.cols`, reframed
      per format with `c.L.pick`. No literal pixels. Keep key action out of the guide's reserved bands.
    - Color and type: only `c.brand.colors` tokens and `c.brand.fonts` families (bundled). One accent.

@@ -8,13 +8,13 @@
 
 motion-studio는 코드로 렌더링하는 모션 디자인용 Claude Code 플러그인이다.
 Claude는 영상을 프로그램으로 쓴다. 어떤 시점의 프레임이든 요청 즉시 그려 내는, 시간의 순수 함수다. 나머지 하네스는
-플러그인이 제공한다. 결정론적 `seek(t)` 캔버스 렌더러, 닫힌 형식(closed-form) 스프링, 비트 그리드, 합성 음악과
-효과음, 2패스 라우드니스 믹스, Claude가 자기 프레임을 직접 보게 만드는 자동 크리틱 루프, 하나의 타임라인에서 뽑는
-9:16·1:1·16:9 납품까지 담은 필름 프로젝트 스캐폴드가 그것이다. 여기에 스킬 12개(전체 파이프라인용
-`/motion-studio:motion-reel` + 파이프라인 02~12단계별 스킬), 전문 서브에이전트 7개, 가드 훅 4개, eval 스위트를 함께
-제공한다.
+플러그인이 제공한다. 결정론적 `seek(t)` 캔버스 렌더러, 3D·셰이더 장면용 WebGL·Three.js 레이어, 닫힌 형식(closed-form)
+스프링과 이름 붙은 타이밍 곡선, 비트 그리드, 합성 음악과 효과음, 2패스 라우드니스 믹스, 속도 그래프·어니언 스킨을 갖춘
+수치 모션 검사, Claude가 자기 프레임을 직접 보게 만드는 자동 크리틱 루프, 하나의 타임라인에서 뽑는 9:16·1:1·16:9(그리고
+GIF) 납품까지 담은 필름 프로젝트 스캐폴드가 그것이다. 여기에 스킬 13개(전체 파이프라인용 `/motion-studio:motion-reel`,
+파이프라인 02~12단계별 스킬, 3D용 `gl-scenes`), 전문 서브에이전트 7개, 가드 훅 4개, eval 스위트를 함께 제공한다.
 
-버전 0.1.0. 독립적인 비공식 구현이며 Anthropic 및 [CREDITS.md](CREDITS.md)에 밝힌 출처들과 무관하다.
+버전 0.2.0([변경 내역](CHANGELOG.md)). 독립적인 비공식 구현이며 Anthropic 및 [CREDITS.md](CREDITS.md)에 밝힌 출처들과 무관하다.
 
 <p align="center"><img src="https://raw.githubusercontent.com/yazzang-homelab/motion-studio/assets/demo.webp" alt="motion-studio로 렌더링한 12초 데모 필름" width="100%"></p>
 <p align="center"><sub><code>studio-init</code>이 만들어 주는 12초 데모 필름을 플러그인으로 렌더링한 것(여기는 16:9, 같은 타임라인으로 9:16·1:1·4:5도 뽑는다).</sub></p>
@@ -22,6 +22,7 @@ Claude는 영상을 프로그램으로 쓴다. 어떤 시점의 프레임이든 
 ## 목차
 
 - [파이프라인](#파이프라인)
+- [모션 랩: 수치, 3D, 검증](#모션-랩-수치-3d-검증)
 - [설치](#설치)
 - [빠른 시작](#빠른-시작)
 - [스킬](#스킬)
@@ -72,6 +73,21 @@ flowchart TD
 모든 페이지를 연다. 라이브 패스는 영상이 그리는 모든 글자가 해당 폰트에 글리프가 있는지도 검사한다. 빠진 글자는 P0 `font-fallback`
 발견 사항이며, 그 글자를 덮는 폰트를 등록할 때까지 열린 P0로 남아 게이트를 막는다. 믹스 패스는 1초 이상의 무음 구간을 P1
 `audio-gap`으로 보고하고, `deliver`는 무음 구간이 있으면 실패한다.
+
+## 모션 랩: 수치, 3D, 검증
+
+0.2.0은 "Opus 5.5 Motion Lab" 실험의 방법론을 하네스에 넣었다. 코드로 렌더링한 영상의 품질은 모델의 한 번 응답보다
+구체적인 연출 지시와 프레임 단위 검수에서 나온다.
+
+| 실천 | 플러그인이 하는 일 |
+|---|---|
+| 형용사를 수치로 | 샷 리스트가 수치 스펙으로 시작한다([motion-spec.md](skills/motion-reel/assets/motion-spec.md): GOAL, OUTPUT, TIME, LOOK, MODEL, MOTION, 프레임 범위의 SHOTS, CAMERA, SOUND, BANNED, QA). [numbers.md](skills/springs/references/numbers.md)가 "고급스럽게", "역동적으로", "영화처럼"을 곡선·감쇠비·지속 시간·FOV·위계로 바꾼다 |
+| 수치로 정한 타이밍 곡선과 스프링 | 정확한 CSS cubic-bezier 위의 `tween(t, t0, dur, a, b, 'outExpo')`, `{ zeta, freq }` 스프링, 예비 동작 `windup()`, 질량을 보존하는 `squash()`, 이음매 없는 루프용 `loopWave()`·`loopNoise()`, `holdTime(words)` |
+| 같은 타임라인 안의 3D와 셰이더 | `/motion-studio:gl-scenes`: `glLayer`(GLSL, SDF 레이마칭, smooth-min 모핑, 리퀴드 크롬, `sdfText`로 어떤 폰트든 돌출 문자)와 `threeLayer`(Three.js 제품 샷, 소프트박스 반사). 소프트웨어 GL(SwiftShader)로 WebGL 프레임이 어느 기기에서나 같다 |
+| 움직임을 증명 | 영상 안의 `c.probe(name, value)`와 `checks`(특정 프레임의 값, 범위, 정해진 프레임의 이벤트, 속도 꺾임 없음, 매끄러운 루프 이음매). `npm run probe`가 속도 그래프 `motion.png`와 어니언 스킨 `onion.png`를 그리고, 크리틱은 실패한 체크를 P0로 올린다 |
+| 접근성 | 프레임 전체나 사분면 어디서든 초당 3회를 넘는 휘도 깜빡임(WCAG 2.3.1)은 크리틱 실패다. 제목은 `holdTime(words)` 동안 유지한다 |
+| 프레임에 맞춘 소리 | 효과음은 과도음 피크를 그림보다 1프레임 뒤에 놓는다(`audio.sfxLagFrames`, 48 kHz·60 fps에서 800샘플) |
+| 정확한 GIF | `npm run gif`: 지연을 1/100초 정수로 맞추고(24 fps는 25, 60은 50), GIF를 다시 파싱해 검사한다 |
 
 ## 설치
 
@@ -165,10 +181,11 @@ Windows에서 렌더러는 요청하지 않는 한 설치된 Chrome이나 Edge�
 | `reference-style` | 05 Reference | 프레임·영상·라이브러리 레퍼런스: `refs.mjs` extract/analyze, `docs/style_guide.md`와 `docs/shotlist.md`, 내용이 아니라 문법만 가져오기, OK 대기 |
 | `ui-morph-spec` | 06 Spec | 6개 섹션 XML 상태 스펙(inputs, direction, structure, build, gotchas, start): 끊기지 않는 하나의 도형, 다운비트마다 상태 전환, 커서 구동, 마지막 프레임 = 첫 프레임 |
 | `seek-engine` | 01 Pixels, 07 Engine | 렌더 계약, 캡처 모드, 성능 조절, 결정론 수정, HyperFrames·Remotion으로 넘기는 경로 B(라이선스 게이트) |
-| `springs` | 08 Springs | 프리셋, `springFromFeel`, `track()` 중첩, `loopTrack`, `indicator`, `swapAlpha`, `stepTime`, 스프링 리팩터 프롬프트 |
+| `springs` | 08 Springs | 프리셋, `springFromFeel`과 `{ zeta, freq }`, `track()` 중첩, `loopTrack`, 이름 붙은 타이밍 곡선(`tween`, `EASES`), `windup`, `squash`, `indicator`, `swapAlpha`, `stepTime`, 스프링 리팩터 프롬프트, 형용사→수치 레퍼런스 |
+| `gl-scenes` | 3D (모션 랩) | `seek(t)` 영상 안의 WebGL·Three.js 샷: `glLayer`(SDF 레이마칭, 리퀴드 크롬, 부드러운 모핑, `sdfText` 돌출 문자), `threeLayer`(제품 샷, 스튜디오 반사), 소프트웨어 GL 결정론, 픽셀·서브프레임당 비용, 실행 가능한 예제 |
 | `sound-design` | 09 Sound | 트랙 측정(`beats.mjs`) 또는 합성(`score.mjs`), 영상에서 뽑은 큐, SFX 음색, 샘플, 음성, 정확한 길이로 -14 LUFS 믹스 |
 | `director-brief` | 10 Overnight | 장편 브리프 골격(PLAN FIRST 또는 GO), `ANIMATION_GUIDE.md` + `STORYBOARD.md`, 챕터당 chapter-animator 하나, 청크 렌더, 선택형 generate-then-trace |
-| `critique-loop` | 11 Critique | 믹스된 렌더를 먼저 만들고 `critique.mjs` 근거(라이브 영상과 `--video`), 엄격한 7축 점수, 타임스탬프가 붙은 P0/P1/P2 문제를 `docs/review_log.md`에 기록, 최악 3개 수정, 해당 구간만 재렌더, 게이트 통과 |
+| `critique-loop` | 11 Critique | 믹스된 렌더를 먼저 만들고 `critique.mjs` 근거(라이브 영상과 `--video`; 깜빡임과 영상의 수치 체크는 P0, 어색한 움직임에는 `probe.mjs` 속도 그래프와 어니언 스킨), 엄격한 7축 점수, 타임스탬프가 붙은 P0/P1/P2 문제를 `docs/review_log.md`에 기록, 최악 3개 수정, 해당 구간만 재렌더, 게이트 통과 |
 | `ship-formats` | 12 Ship | `layout()`으로 포맷별 재배치(크롭 금지), 전 포맷 렌더, 포맷별 검사, `deliver.mjs`, 자체 브랜드 스킬 패키징, 서비스 제안 템플릿 |
 
 ## 에이전트
@@ -239,7 +256,13 @@ Node 시작 시간에 1초보다 훨씬 적은 시간만 더하고, 내부 오�
   그리는 영상은 `lib/draw.js`의 `recordText(str, cssFont)`를 호출할 수 있다. `text()`와 `kinetic()`은 등록되지 않은 패밀리에
   예외를 던지지 않는다(시스템 폰트와 이모지 폰트도 정당하다). 그것은 크리틱이 보고한다.
 - 렌더 모드(`?render=1`, `window.__RENDER__`, `navigator.webdriver`)에서는 프리뷰 UI가 꺼진다. 프리뷰 UI는 항상
-  캔버스 바깥에 있다.
+  캔버스 바깥에 있다. `?render&t=2.5`는 부팅 후 그 시점을 한 번 그리고, `window.renderAt(t)`는 `seek(t)`의 별칭이다.
+- 프로브와 체크: 어떤 draw 안에서든 `c.probe(name, value)`가 그 프레임의 수치를 기록한다(크리틱이나 `probe.mjs`가 수집할
+  때만 동작하며 픽셀은 바꾸지 않는다). `__studio.probes(t)`, `__studio.probeRun({ from, to, fps })`, `__studio.checks()`로
+  노출되고, 영상 팩토리의 `checks`는 point·range·event·smooth 단언이다.
+- GL 레이어(`lib/gl.js`, `lib/three-layer.js`)는 씬 draw 안에서 오프스크린 WebGL2 캔버스를 그려 `drawImage`로 합성한다.
+  셰이더에 시간은 유니폼으로만 들어간다. `studio.json` `"gl": "software"`(기본)는 WebGL을 SwiftShader로 실행해
+  (`--use-angle=swiftshader --enable-unsafe-swiftshader`) GL 프레임 해시가 어디서나 같다.
 - 2D 컨텍스트는 CPU 래스터라이즈(`willReadFrequently`, 글자를 회색조 안티앨리어싱으로 유지하는 `alpha: true`, `--disable-accelerated-2d-canvas`)이며 씬은
   포맷의 논리 픽셀로 그린다. 번들 폰트는 FontFace API로 로드하고 검증한다. 폰트가 없으면 렌더가 실패한다.
 - 모션 블러: 캔버스 영상은 페이지 안에서 `sub`개 서브프레임(기본 4, 셔터 0.5)을 각 프레임 시각을 중심으로 누적한다.
@@ -313,12 +336,15 @@ npm run fonts -- coverage --text "안녕하세요 모션 스튜디오" --family 
 | `npm run animatic` | `render.mjs --scale 0.5 --fps 30 --sub 1 --draft --out out/animatic` | 빠른 페이싱 확인 | 위와 같음 |
 | `npm run stills` | `tools/stills.mjs --beats` | 비트마다 스틸 한 장씩, 라벨이 붙은 컨택트 시트. 어떤 이미지도 `--page-height`(기본 1800px)보다 높거나 1990px보다 넓지 않다. 더 긴 시트는 행 단위 페이지로 나누고, 1페이지는 `contact.png`, 이어서 `contact-2.png`, `contact-3.png` ... 다(`--cols`는 폭에 맞게 줄어든다) | `--at 0.5,2` `--every S` `--beats` `--shots` `--from S` `--to S` `--format` `--width` `--cols` `--no-label` `--out` `--page-height N` `--frames-dir` `--sub` `--max` |
 | `npm run critique` | `tools/critique.mjs` | 크리틱 라운드 근거: contact, shots, phone, strip, (루프 영상) loop 시트와 `metrics.json`/`metrics.md`(결정론, 그려진 텍스트의 글리프 커버리지, 정지 구간, 팝, 프레임 0, 루프 이음새, 모서리, 테두리, 싱크, 라우드니스, 무음 구간). 시트는 `stills`와 같은 규칙으로 페이지가 나뉜다(`--page-height` 기본 1800px, 모든 페이지를 연다). 라이브 영상은 `out/review/<fmt>/`에, 믹스 렌더에 준 `--video`는 `out/review/<fmt>/video/`에 쓴다(서로 덮어쓰지 않음). `--from S --to S`는 한 챕터만 검토한다: 스틸, 시트, 모든 지표가 그 구간만 다룬다. 발견 사항에는 P0 `font-fallback`(라이브)과 P1 `audio-gap`(`--video`)이 있다. 모든 근거 폴더에는 `film-hash.json`(`film/**`, `lib/**`, `studio.json`에 대한 `filmHash`)과 `baseline.json`도 생기며 다음 실행이 새로 나온 팝·점프·정지 구간 후보를 알려 준다. `studio.json`의 `critique.stepped`와 `critique.popIgnore`는 하드 스텝 룩을 발견 사항에서 뺀다 | `--format` `--video [PATH]` `--from S` `--to S` `--strip-at S` `--page-height N` `--no-determinism` `--skip-determinism-repeat` `--check-hash` `--json` |
+| `npm run probe` | `tools/probe.mjs` | 영상의 프로브 시계열과 체크 판정(point, range, event, smooth), 프로브별 루프 이음매(값과 속도): `out/review/<fmt>/probes.json`, 속도 그래프 `motion.png`, `--onion A:B[:STEP]`이면 어니언 스킨 `onion.png`. 체크 실패 시 exit 1, 프로브가 없는 영상은 0 | `--format` `--from S` `--to S` `--fps N` `--channels a,b` `--onion A:B[:STEP]` `--json` |
 | `npm run score` | `tools/score.mjs` | 오리지널 합성 음악 + `audio/beats.json` + `audio/music.meta.json`(설정과 WAV 해시). `--if-missing`은 제공된 트랙과 설정이 아직 맞는 스코어를 유지하고, 스스로 만든 낡은 스코어는 다시 만든다 | `--bpm` `--dur` `--style pulse\|piano\|minimal\|cinematic` `--key` `--mode` `--seed` `--drop BAR` `--loop` `--out` `--beats` `--if-missing` |
 | `npm run beats` | `tools/beats.mjs <track>` | 제공된 트랙 측정: BPM, 비트, 다운비트, 히트. JS 엔진은 `--bpm-hint`로 넓히지 않으면 70~180 BPM을 탐색한다 | `--engine auto\|librosa\|js` `--bpm-hint N` `--no-cache` `--out` |
-| `npm run sfx` | `tools/sfx.mjs` | 영상에서 큐를 읽어 모든 SFX를 합성, `audio/sfx.wav` 작성 | `--cues` `--format` `--out` `--dur` `--samples DIR\|none`(`--no-samples`) `--seed` `--dump-cues` `--list` |
+| `npm run sfx` | `tools/sfx.mjs` | 영상에서 큐를 읽어 모든 SFX를 합성(각 효과음은 큐보다 `audio.sfxLagFrames` 프레임 뒤), `audio/sfx.wav` 작성 | `--lag-frames N` `--cues` `--format` `--out` `--dur` `--samples DIR\|none`(`--no-samples`) `--seed` `--dump-cues` `--list` |
 | `npm run voice` | `tools/voice.mjs` | `audio/voice.json`의 대사를 ElevenLabs로 `audio/voice.wav`에 생성(이후 `studio.json`의 `audio.voice` 설정). 사용자의 `ELEVENLABS_API_KEY` 필요. 똑같은 대사는 한 번만 합성하고 과금한다 | `--script` `--dry-run` `--voice-id` `--model` `--out` |
 | `npm run mix` | `tools/mix.mjs --format all` | 모든 스템을 먼저 측정한 뒤 2패스 라우드니스 믹스로 `out/score.wav`, `out/<fmt>/final.mp4`에 먹싱. 영상보다 0.25초 넘게 짧거나 비어 있거나 무음인 music·voice·sfx 스템은 믹스를 멈춘다(무음 sfx 스템은 경고만 한다). `--lufs`와 `audio.lufs`는 -70~-5를 받는다. 잘못된 플래그는 종료 코드 2, `studio.json`의 잘못된 값은 1이다 | `--format` `--music P\|none` `--sfx P\|none` `--voice P\|none` `--lufs` `--tp` `--no-duck` `--allow-short-stems` |
 | `npm run deliver` | `tools/deliver.mjs` | `final.mp4`를 현재 `studio.json`에 대고 납품 검사(코덱, 프레임, 정확한 길이, 크기, fps, 오디오, 라우드니스, 트루 피크, 무음 구간, 용량, 포스터, 루프 이음새, 게이트. `duration`이나 `fps`를 고치기 전에 만든 렌더는 낡은 렌더로 실패. -50 dB 아래로 1초 이상 이어지는 무음은 도입부, 페이드아웃, `critique.allowSilence` 구간을 뺀 나머지가 `silence` 검사로 실패) + `out/deliver/`(영상, 포스터, 컨택트 시트의 모든 페이지, `manifest.json`)와 `docs/production.json`으로 패키징. 검사 하나라도 실패하면 1로 종료. `--json` 실패 줄: `{ ok: false, error, failed: [...] }`. `--format`은 지정한 포맷만 다시 납품하고 나머지는 유지한다 | `--format f\|all\|a,b` |
+| `npm run gif` | `tools/gif.mjs` | `final.mp4`(또는 `silent.mp4`)에서 `out/<fmt>/<title>_<fmt>.gif`: 2패스 팔레트, Lanczos 축소, 무한 반복. fps를 1/100초 정수 지연에 맞춰(50, 33.3, 25, 20 …, 기본 25) 속도와 길이가 정확하다. 만든 GIF를 다시 파싱해 프레임 수·지연·길이·반복·`--max-bytes`를 검사한다 | `--format` `--fps` `--width` `--colors` `--dither` `--from` `--to` `--once` `--max-bytes` `--json` |
+| `npm run three:add` | `npm i -E three@0.160.0` | `threeLayer` 영상용 Three.js를 고정 버전으로 설치(`index.html`이 `three`와 `three/addons/`를 매핑) | 없음 |
 | `npm run build` | score(없을 때), sfx, render:final, mix, deliver | 마무리 전체를 한 번에(훅이 게이트) | |
 | `npm run lint` | `tools/lint.mjs` | `index.html`, `film/**`, `lib/**`의 결정론·하우스 룰 린트. 오류가 있으면 1로 종료. `--json`이면 사용법·실행 오류가 `{"ok":false,"error":"..."}`로 나온다 | `[files...]` `--json` |
 | `npm run gate` | `tools/gate.mjs` | `docs/review_log.md`를 `studio.json`의 `gate`(`minRounds`, `minScore`, `axes`, `naAllowed`, `requireFormats`)와 대조한 크리틱 게이트 상태. 엄격한 열린 P0 규칙은 `--help`에 출력된다. 통과 0, 실패 1. `--json`이면 통과하지 못한 게이트는 자체 판정(`pass: false`, `reasons`)을 출력하고, 사용법·설정 오류는 `{"ok":false,"error":"..."}`를 출력한다 | `--json` |
@@ -415,7 +441,7 @@ npm run fonts -- coverage --text "안녕하세요 모션 스튜디오" --family 
 | A 코드 드로잉 | 쇼릴, UI 모션, 루프, 제품 영상 | 의존성 없음, 전부 수정 가능, 지시가 없을 때 Opus가 고르는 방식 | 캐릭터와 실사 표현은 스펙이 많이 필요 | 파이프라인 전체. 기본값 |
 | B 프레임워크(Remotion, HyperFrames) | 설명 영상, 제품 영상, 시리즈 | 스튜디오 프리뷰, 재사용 컴포넌트 | Remotion은 직원 3명 초과 영리 조직에 Company License 필요. HyperFrames와 `skills` CLI는 Node 22+ 필요 | 프레임워크를 지명할 때만 `seek-engine`으로 핸드오프 |
 | C 혼합 파이프라인 | 뮤직비디오, 캐릭터 스토리 | 이미지·비디오 모델이 물리와 얼굴을 맡고 보이는 레이어는 코드가 그림 | API 비용, 싱크 작업, 결정론 약화 | `director-brief`로 계획. 사용자 키와 예산 사용. 생성기는 번들하지 않음 |
-| D 촬영본 편집 | 토킹 헤드, 실제 클립 재편집 | 실제 얼굴과 목소리가 그대로 남음 | 원본 촬영본과 깨끗한 오디오 필요 | 0.1.0 범위 밖 |
+| D 촬영본 편집 | 토킹 헤드, 실제 클립 재편집 | 실제 얼굴과 목소리가 그대로 남음 | 원본 촬영본과 깨끗한 오디오 필요 | 범위 밖 |
 
 Effort: 수정·재렌더는 medium, 새 영상은 xhigh, 첫 3초가 런칭을 책임져야 하면 max. `motion-reel`은 실행 중
 xhigh로 설정한다. `/effort` 또는 `/model`로 바꾼다.
@@ -492,8 +518,8 @@ Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4625; StartTime=(Get-Date
 
 ## Eval과 CI
 
-`evals/`에는 `claude plugin eval` 스위트(12개 케이스)가 있다. `motion-reel`, `showreel`, `product-reel` 에셋 단계의 트리거
-케이스, 스프링·XML 스펙·디렉터 브리프·Remotion 라이선스 게이트 내용 케이스, 심어 둔 컨택트 시트를 크리틱하는 케이스(메인
+`evals/`에는 `claude plugin eval` 스위트(14개 케이스)가 있다. `motion-reel`, `showreel`, `gl-scenes`, `product-reel` 에셋
+단계의 트리거 케이스, 스프링·수치 모션 스펙·XML 스펙·디렉터 브리프·Remotion 라이선스 게이트 내용 케이스, 심어 둔 컨택트 시트를 크리틱하는 케이스(메인
 세션과 `motion-critic` 서브에이전트 경유)와 결정론을 깨지 않고 영상을 수정하는 스캐폴드 케이스, 어떤 스킬도 발동하면 안
 되는 부정 케이스, 렌더 스모크 케이스로 구성된다.
 
@@ -533,7 +559,7 @@ Bash 권한이 필요한 케이스(렌더 케이스)는 Linux나 macOS에서만 
 3. `npm run lint`, `npm run validate`, `npm test`, `npm run eval:lint`, `npm run eval:selftest`를 실행하고 푸시한 뒤 CI를 기다린다.
 4. 루트에 `package-lock.json`을 두지 않는다. 락파일이 있으면 Claude Code가 설치 때마다 사용자 플러그인 캐시에
    개발 의존성을 `npm ci`한다.
-5. `claude plugin tag . --dry-run`으로 릴리스 태그를 미리 본 뒤(`motion-studio--v0.1.0` 예상)
+5. `claude plugin tag . --dry-run`으로 릴리스 태그를 미리 본 뒤(`motion-studio--v0.2.0` 예상)
    `claude plugin tag . --push`를 실행한다.
 6. 깨끗한 머신에서 `claude plugin marketplace add yazzang-homelab/motion-studio`, `claude plugin install
    motion-studio@motion-studio`를 실행하고 빈 폴더에서 `/motion-studio:studio-init`을 확인한다.

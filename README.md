@@ -8,13 +8,14 @@ English | [한국어](README.ko.md)
 
 motion-studio is a Claude Code plugin for code-rendered motion design. Claude
 writes each film as a program: a pure function of time that paints any frame on demand. The plugin supplies the rest
-of the harness: a film-project scaffold with a deterministic `seek(t)` canvas renderer, closed-form springs, a beat
-grid, synthesized music and SFX, a two-pass loudness mix, an automated critique loop that makes Claude look at its own
-frames, and delivery in 9:16, 1:1 and 16:9 from one timeline. On top of that it ships 12 skills
-(`/motion-studio:motion-reel` for the whole pipeline plus one per pipeline step from 02 to 12), 7 specialist subagents,
-4 guard hooks and an eval suite.
+of the harness: a film-project scaffold with a deterministic `seek(t)` canvas renderer, WebGL and Three.js layers for 3D
+and shader shots, closed-form springs and named timing curves, a beat grid, synthesized music and SFX, a two-pass
+loudness mix, numeric motion checks with speed graphs and onion skins, an automated critique loop that makes Claude look
+at its own frames, and delivery in 9:16, 1:1 and 16:9 (plus GIF) from one timeline. On top of that it ships 13 skills
+(`/motion-studio:motion-reel` for the whole pipeline, one per pipeline step from 02 to 12, and `gl-scenes` for 3D), 7
+specialist subagents, 4 guard hooks and an eval suite.
 
-Version 0.1.0. Independent, unofficial implementation: not affiliated with Anthropic or any source credited in
+Version 0.2.0 ([what changed](CHANGELOG.md)). Independent, unofficial implementation: not affiliated with Anthropic or any source credited in
 [CREDITS.md](CREDITS.md).
 
 <p align="center"><img src="https://raw.githubusercontent.com/yazzang-homelab/motion-studio/assets/demo.webp" alt="The 12-second demo film rendered by motion-studio" width="100%"></p>
@@ -23,6 +24,7 @@ Version 0.1.0. Independent, unofficial implementation: not affiliated with Anthr
 ## Contents
 
 - [Pipeline](#pipeline)
+- [Motion Lab: numbers, 3D, proof](#motion-lab-numbers-3d-proof)
 - [Install](#install)
 - [Quickstart](#quickstart)
 - [Skills](#skills)
@@ -74,6 +76,21 @@ from real audio and cannot render or mix itself. The critic opens every page of 
 every character the film draws has a glyph in its font: a missing one is a P0 `font-fallback` finding, which stays an open P0
 (and blocks the gate) until a font that covers it is registered. The mix pass reports a silent span of 1 s or more as a P1
 `audio-gap`, and `deliver` fails on one.
+
+## Motion Lab: numbers, 3D, proof
+
+Version 0.2.0 builds in the method of the "Opus 5.5 Motion Lab" experiments: the quality of a code-rendered film comes
+less from one model answer than from a specific direction and frame-by-frame verification.
+
+| Practice | What the plugin does |
+|---|---|
+| Replace adjectives with numbers | The shot list opens with a numeric spec ([motion-spec.md](skills/motion-reel/assets/motion-spec.md): GOAL, OUTPUT, TIME, LOOK, MODEL, MOTION, SHOTS in frame ranges, CAMERA, SOUND, BANNED, QA). [numbers.md](skills/springs/references/numbers.md) translates "premium", "dynamic", "cinematic" into curves, damping ratios, durations, FOV and hierarchy |
+| Timing curves and springs by the numbers | `tween(t, t0, dur, a, b, 'outExpo')` on exact CSS cubic-béziers; springs as `{ zeta, freq }`; `windup()` anticipation, `squash()` that keeps the mass, `loopWave()` / `loopNoise()` for seamless loops, `holdTime(words)` |
+| 3D and shaders in the same timeline | `/motion-studio:gl-scenes`: `glLayer` (GLSL, SDF raymarching, smooth-min morphs, liquid chrome, extruded type from any font via `sdfText`) and `threeLayer` (Three.js product shots, softbox reflections). Software GL (SwiftShader) keeps WebGL frames identical on every machine |
+| Prove the motion | `c.probe(name, value)` plus `checks` in the film (a value at a frame, a range, an event on its frame, no velocity kink, a smooth loop seam); `npm run probe` draws the speed graph `motion.png` and the onion skin `onion.png`; the critique turns failing checks into P0 problems |
+| Accessibility | The critique fails more than 3 luminance flashes per second (WCAG 2.3.1) on the frame or any quadrant; titles hold `holdTime(words)` |
+| Sound on the frame | SFX land their transient peak one frame after the picture (`audio.sfxLagFrames`, 800 samples at 48 kHz / 60 fps) |
+| Exact GIFs | `npm run gif`: delays in whole centiseconds (24 fps becomes 25, 60 becomes 50), checked by parsing the GIF back |
 
 ## Install
 
@@ -170,10 +187,11 @@ Invoke as `/motion-studio:<name>`. Each skill ends with a pointer to the next st
 | `reference-style` | 05 Reference | Frame, video or library references: `refs.mjs` extract/analyze, `docs/style_guide.md` and `docs/shotlist.md`, grammar never content, wait for OK |
 | `ui-morph-spec` | 06 Spec | Six-section XML state spec (inputs, direction, structure, build, gotchas, start): one shape never cuts, states on downbeats, cursor-driven, last frame = first |
 | `seek-engine` | 01 Pixels, 07 Engine | The render contract, capture modes, performance knobs, determinism fixes, and the route B handoff to HyperFrames or Remotion (license gate) |
-| `springs` | 08 Springs | Presets, `springFromFeel`, `track()` superposition, `loopTrack`, `indicator`, `swapAlpha`, `stepTime`, the refactor-to-springs prompt |
+| `springs` | 08 Springs | Presets, `springFromFeel` and `{ zeta, freq }`, `track()` superposition, `loopTrack`, named timing curves (`tween`, `EASES`), `windup`, `squash`, `indicator`, `swapAlpha`, `stepTime`, the refactor-to-springs prompt, and the adjectives-to-numbers reference |
+| `gl-scenes` | 3D (Motion Lab) | WebGL and Three.js shots inside a `seek(t)` film: `glLayer` (SDF raymarching, liquid chrome, smooth morphs, `sdfText` extruded type), `threeLayer` (product shots, studio reflections), software GL determinism, cost per pixel and subframe, runnable examples |
 | `sound-design` | 09 Sound | Measure a track (`beats.mjs`) or synthesize one (`score.mjs`), cues from the film, SFX voices, samples, voice, mix to -14 LUFS at exact length |
 | `director-brief` | 10 Overnight | Long-form brief skeleton (PLAN FIRST or GO), `ANIMATION_GUIDE.md` + `STORYBOARD.md`, one chapter-animator per chapter, chunked render, optional generate-then-trace |
-| `critique-loop` | 11 Critique | Mixed render first, then `critique.mjs` evidence (live film and `--video`), harsh 7-axis scores, P0/P1/P2 problems with timestamps in `docs/review_log.md`, fix the 3 worst, re-render only affected seconds, pass the gate |
+| `critique-loop` | 11 Critique | Mixed render first, then `critique.mjs` evidence (live film and `--video`; flashes and the film's numeric checks are P0 findings; `probe.mjs` speed graph and onion skin for a move that feels wrong), harsh 7-axis scores, P0/P1/P2 problems with timestamps in `docs/review_log.md`, fix the 3 worst, re-render only affected seconds, pass the gate |
 | `ship-formats` | 12 Ship | Reframe per format with `layout()` (never crop), render every format, per-format checks, `deliver.mjs`, package your own brand skill, a service-offer template |
 
 ## Agents
@@ -245,7 +263,13 @@ signatures and defaults of `lib/`), so Claude finds them without the plugin repo
   film that draws with `g.fillText` itself can call `recordText(str, cssFont)` from `lib/draw.js`. `text()` and `kinetic()` do not
   throw for an unregistered family (system and emoji fonts are legal); the critique reports it.
 - Render mode (`?render=1`, `window.__RENDER__` or `navigator.webdriver`) disables the preview UI, which always lives
-  outside the canvas.
+  outside the canvas. `?render&t=2.5` paints that time once after boot; `window.renderAt(t)` is an alias of `seek(t)`.
+- Probes and checks: `c.probe(name, value)` inside any draw records a number for the frame (a no-op unless the critique or
+  `probe.mjs` is collecting, never a pixel change); `__studio.probes(t)`, `__studio.probeRun({ from, to, fps })` and
+  `__studio.checks()` expose them; the film factory's `checks` are point, range, event and smooth assertions.
+- GL layers (`lib/gl.js`, `lib/three-layer.js`) paint an offscreen WebGL2 canvas inside a scene draw and composite it with
+  `drawImage`. Time reaches a shader only through uniforms. `studio.json` `"gl": "software"` (default) runs WebGL on
+  SwiftShader (`--use-angle=swiftshader --enable-unsafe-swiftshader`), so GL frames hash the same everywhere.
 - The 2D context is CPU-rasterized (`willReadFrequently`, `alpha: true` so text stays grayscale-antialiased, `--disable-accelerated-2d-canvas`) and
   scenes draw in the format's logical pixels. Bundled fonts are loaded with the FontFace API and asserted; a missing
   font fails the render.
@@ -323,12 +347,15 @@ times are in the [render time](#render-time) table.
 | `npm run animatic` | `render.mjs --scale 0.5 --fps 30 --sub 1 --draft --out out/animatic` | Fast pacing check | as above |
 | `npm run stills` | `tools/stills.mjs --beats` | One still per beat as a labelled contact sheet. No image is taller than `--page-height` (default 1800 px) or wider than 1990 px: a longer sheet is split into pages of whole rows, page 1 is `contact.png`, then `contact-2.png`, `contact-3.png` ... (`--cols` is lowered to fit) | `--at 0.5,2` `--every S` `--beats` `--shots` `--from S` `--to S` `--format` `--width` `--cols` `--no-label` `--out` `--page-height N` `--frames-dir` `--sub` `--max` |
 | `npm run critique` | `tools/critique.mjs` | Evidence for a critique round: contact, shots, phone, strip and (loop films) loop sheets plus `metrics.json`/`metrics.md` (determinism, glyph coverage of the drawn text, dead spans, pops, frame 0, loop seam, corners, borders, sync, loudness, silent spans). Sheets are paged like `stills` (same rule, `--page-height` default 1800 px; open every page). Live film into `out/review/<fmt>/`; `--video` on a mixed render into `out/review/<fmt>/video/` (the two never overwrite each other). `--from S --to S` review one chapter: stills, sheets and every metric cover only that range. Findings include a P0 `font-fallback` (live) and a P1 `audio-gap` (`--video`). Every evidence folder also gets `film-hash.json` (`filmHash` over `film/**`, `lib/**`, `studio.json`) and `baseline.json`: the next run lists which pop, jump and dead-span candidates are new. `studio.json` `critique.stepped` and `critique.popIgnore` keep hard-stepped looks out of the findings | `--format` `--video [PATH]` `--from S` `--to S` `--strip-at S` `--page-height N` `--no-determinism` `--skip-determinism-repeat` `--check-hash` `--json` |
+| `npm run probe` | `tools/probe.mjs` | The film's probe series and check verdicts (point, range, event, smooth) plus the loop seam per probe (value and velocity): `out/review/<fmt>/probes.json`, the speed graph `motion.png`, and with `--onion A:B[:STEP]` the onion skin `onion.png`; exit 1 on a failing check, 0 for a film without probes | `--format` `--from S` `--to S` `--fps N` `--channels a,b` `--onion A:B[:STEP]` `--json` |
 | `npm run score` | `tools/score.mjs` | Original synthesized music + `audio/beats.json` + `audio/music.meta.json` (settings and WAV hash); `--if-missing` keeps a supplied track and a score whose settings still match, and regenerates a stale score of its own | `--bpm` `--dur` `--style pulse\|piano\|minimal\|cinematic` `--key` `--mode` `--seed` `--drop BAR` `--loop` `--out` `--beats` `--if-missing` |
 | `npm run beats` | `tools/beats.mjs <track>` | Measure a supplied track: BPM, beats, downbeats, hits. The JS engine searches 70 to 180 BPM unless `--bpm-hint` widens it | `--engine auto\|librosa\|js` `--bpm-hint N` `--no-cache` `--out` |
-| `npm run sfx` | `tools/sfx.mjs` | Read cues from the film, synthesize every SFX, write `audio/sfx.wav` | `--cues` `--format` `--out` `--dur` `--samples DIR\|none` (`--no-samples`) `--seed` `--dump-cues` `--list` |
+| `npm run sfx` | `tools/sfx.mjs` | Read cues from the film, synthesize every SFX (each lands `audio.sfxLagFrames` frames after its cue), write `audio/sfx.wav` | `--lag-frames N` `--cues` `--format` `--out` `--dur` `--samples DIR\|none` (`--no-samples`) `--seed` `--dump-cues` `--list` |
 | `npm run voice` | `tools/voice.mjs` | ElevenLabs voice lines from `audio/voice.json` into `audio/voice.wav` (then set `audio.voice` in `studio.json`); needs your `ELEVENLABS_API_KEY`; an identical line is synthesized and billed once | `--script` `--dry-run` `--voice-id` `--model` `--out` |
 | `npm run mix` | `tools/mix.mjs --format all` | Measures every stem, then a two-pass loudness mix to `out/score.wav`, mux into `out/<fmt>/final.mp4`. A music, voice or sfx stem that is short (by over 0.25 s), empty or silent stops the mix (a silent sfx stem only warns). `--lufs` and `audio.lufs` accept -70 to -5; a bad flag is exit 2, a bad `studio.json` value is exit 1 | `--format` `--music P\|none` `--sfx P\|none` `--voice P\|none` `--lufs` `--tp` `--no-duck` `--allow-short-stems` |
 | `npm run deliver` | `tools/deliver.mjs` | Delivery checks of `final.mp4` against the current `studio.json` (codec, frames, exact duration, size, fps, audio, loudness, true peak, silent spans, file size, poster, loop seam, gate; a render older than a `duration` or `fps` edit fails as stale; a silent span of 1 s or more below -50 dB fails as `silence`, except an intro, a fade-out or a `critique.allowSilence` interval) + package into `out/deliver/` (video, poster, every page of the contact sheet, `manifest.json`) and `docs/production.json`; exit 1 when a check fails. `--json` failure: `{ ok: false, error, failed: [...] }`. `--format` re-delivers only those formats and keeps the others | `--format f\|all\|a,b` |
+| `npm run gif` | `tools/gif.mjs` | `out/<fmt>/<title>_<fmt>.gif` from `final.mp4` (or `silent.mp4`): two-pass palette, Lanczos scale, loops forever; fps snapped to whole centiseconds (50, 33.3, 25, 20 ...; default 25) so speed and length stay exact; the GIF is parsed back and checked (frames, delays, length, loop, `--max-bytes`) | `--format` `--fps` `--width` `--colors` `--dither` `--from` `--to` `--once` `--max-bytes` `--json` |
+| `npm run three:add` | `npm i -E three@0.160.0` | Installs Three.js pinned for `threeLayer` films (`index.html` maps `three` and `three/addons/`) | none |
 | `npm run build` | score (if missing), sfx, render:final, mix, deliver | The whole finish in one command (gated by the hook) | |
 | `npm run lint` | `tools/lint.mjs` | Determinism and house-rule lint of `index.html`, `film/**`, `lib/**`; exit 1 on errors. With `--json` a usage or runtime error prints `{"ok":false,"error":"..."}` | `[files...]` `--json` |
 | `npm run gate` | `tools/gate.mjs` | Critique gate status from `docs/review_log.md` against `gate` in `studio.json` (`minRounds`, `minScore`, `axes`, `naAllowed`, `requireFormats`); the strict open-P0 rule is printed by `--help`; exit 0 pass, 1 fail. With `--json` a failing gate prints its verdict (`pass: false`, `reasons`); a usage or config error prints `{"ok":false,"error":"..."}` | `--json` |
@@ -427,7 +454,7 @@ Routes, from the course's route table:
 | A code-drawn | Showreels, UI motion, loops, product films | Zero dependencies, fully editable, what Opus picks when unprompted | Characters and photoreal need a lot of spec | The whole pipeline; the default |
 | B framework (Remotion, HyperFrames) | Explainers, product videos, series | Studio preview, reusable components | Remotion needs a Company License for for-profit organizations with more than 3 employees; HyperFrames and the `skills` CLI need Node 22+ | Handoff via `seek-engine`, only when you name the framework |
 | C mixed pipeline | Music videos, character stories | Physics and faces from image/video models, code draws the visible layer | API spend, sync work, less determinism | Planned with `director-brief`; your keys and budget; no generator is bundled |
-| D footage edit | Talking heads, recuts of real clips | Your real face and voice stay in | Needs raw footage and clean audio | Out of scope for 0.1.0 |
+| D footage edit | Talking heads, recuts of real clips | Your real face and voice stay in | Needs raw footage and clean audio | Out of scope |
 
 Effort: medium for fixes and re-renders, xhigh for new films, max when the first 3 seconds carry a launch.
 `motion-reel` sets xhigh while it runs; change it with `/effort` or `/model`.
@@ -507,8 +534,8 @@ exclusion for `%LOCALAPPDATA%\ms-playwright` removes the delay. Whether to ask f
 
 ## Evals and CI
 
-`evals/` holds the `claude plugin eval` suite (12 cases): trigger cases for `motion-reel`, `showreel` and the asset stage
-of `product-reel`, content cases for springs, the XML spec, the director brief and the Remotion license gate,
+`evals/` holds the `claude plugin eval` suite (14 cases): trigger cases for `motion-reel`, `showreel`, `gl-scenes` and the
+asset stage of `product-reel`, content cases for springs, the numeric motion spec, the XML spec, the director brief and the Remotion license gate,
 scaffolded cases that critique a planted contact sheet (in the main session and through the `motion-critic` subagent)
 and edit a film without breaking determinism, a negative case that must not fire any skill, and a render smoke case.
 
@@ -547,7 +574,7 @@ tools.
 3. Run `npm run lint`, `npm run validate`, `npm test`, `npm run eval:lint` and `npm run eval:selftest`; push and wait for CI.
 4. Keep the root free of `package-lock.json`: with a lockfile, Claude Code would `npm ci` the development
    dependencies into every user's plugin cache on install.
-5. Preview the release tag with `claude plugin tag . --dry-run` (expect `motion-studio--v0.1.0`), then
+5. Preview the release tag with `claude plugin tag . --dry-run` (expect `motion-studio--v0.2.0`), then
    `claude plugin tag . --push`.
 6. On a clean machine: `claude plugin marketplace add yazzang-homelab/motion-studio`, `claude plugin install
    motion-studio@motion-studio`, then `/motion-studio:studio-init` in an empty folder.
